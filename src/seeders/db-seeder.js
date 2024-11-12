@@ -18,7 +18,7 @@ const DBSeeder = async () => {
             valuePpn: 10,
             statusPpn: true,
             statusBiayaLain: true,
-            valueBiayaLain: 999.99,
+            valueBiayaLain: 100000,
             status: true,
         }, {transaction});
         await transaction.commit();

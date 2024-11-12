@@ -6,6 +6,7 @@ import DuplicateException from "../exceptions/duplicate-exception.js";
 import {UniqueConstraintError} from "sequelize";
 import {ZodError} from "zod";
 import zodErrorParser from "../helpers/zod-error-parser.js";
+import CantProcessDataException from "../exceptions/CantProcessDataException.js";
 
 const errorMiddleware = (error, request, response, nextFunction) => {
   console.error("Error Middleware", error);
@@ -22,6 +23,9 @@ const errorMiddleware = (error, request, response, nextFunction) => {
   }
   else if(error instanceof UniqueConstraintError){
     response.status(400).json(errorResponse("Duplicate Data", error.errors));
+  }
+  else if(error instanceof CantProcessDataException){
+    response.status(422).json(errorResponse("Cant Process Data", error.errors));
   }
   else if( error instanceof ZodError){
     response.status(400).json(errorResponse("Validation Error", zodErrorParser(error.errors)));

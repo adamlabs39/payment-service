@@ -63,7 +63,7 @@ FaskesProfilesModel.init(
             defaultValue: false,
         },
         valueBiayaLain: {
-            type: DataTypes.DECIMAL(5, 2),
+            type: DataTypes.FLOAT,
             allowNull: false,
             defaultValue: 0,
         },

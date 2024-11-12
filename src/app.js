@@ -7,7 +7,7 @@ import { rateLimit } from 'express-rate-limit';
 import cors from 'cors';
 import MODEL_MERGE from "./models/model-merge.js";
 import DBSeeder from "./seeders/db-seeder.js";
-
+import router from "./routes/router.js";
 const app = express();
 const port = process.env.APP_PORT || 8080;
 const host = process.env.APP_HOST || 'localhost';
@@ -31,9 +31,8 @@ const limiter = rateLimit({
     message: "Too many requests from this IP, please try again after 5 minutes"
 });
 app.use(limiter);
+app.use("/api/v1", router);
 app.use(errorMiddleware);
-
-
 if (process.env.SYNC_DB === "true") {
     try {
         for (const model of MODEL_MERGE) {

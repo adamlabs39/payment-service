@@ -1,4 +1,4 @@
-import JwtHelper from "../helpers/jwt-helpers.js";
+import JwtHelper from "../helpers/jwt-helper.js";
 import { Context as Ctx } from "./context.js";
 import { CTX_AUTHOR } from "../constants/context-constant.js";
 const authorizationMiddleware = async (request, response, nextFunction) => {
