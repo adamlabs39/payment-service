@@ -1,5 +1,6 @@
 import sequelizeInstance from "../configs/sequelize-instance.js";
 import FaskesProfilesModel from "../models/faskes-profiles-model.js";
+import VoucherModel from "../models/voucher-model.js";
 
 const DBSeeder = async () => {
     const transaction = await sequelizeInstance.transaction();
@@ -19,6 +20,19 @@ const DBSeeder = async () => {
             statusPpn: true,
             statusBiayaLain: true,
             valueBiayaLain: 100000,
+            status: true,
+        }, {transaction});
+
+        await VoucherModel.create({
+            faskesUuid: "9d403ufjh43ufh3uf8430ihf",
+            qty: 10,
+            name: "Voucher 1",
+            code: "VCR001",
+            start_date: 1731567760,
+            end_date: 1931567760,
+            type: "persentase",
+            value: 10,
+            using: 0,
             status: true,
         }, {transaction});
         await transaction.commit();
