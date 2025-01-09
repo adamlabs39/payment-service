@@ -68,6 +68,10 @@ BillModel.init(
             values: ["persentase", "potongan"],
             allowNull: true,
         },
+        discount: {
+            type: DataTypes.FLOAT,
+            allowNull: true,
+        },
         grandTotal: {
             type: DataTypes.FLOAT,
             allowNull: false,

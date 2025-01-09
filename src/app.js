@@ -38,7 +38,7 @@ if (process.env.SYNC_DB === "true") {
         for (const model of MODEL_MERGE) {
             await model.sync({ alter: true, force: true });
         }
-        await DBSeeder();
+        // await DBSeeder();
     } catch (error) {
         console.error("Failed to synchronize the database:", error);
     }

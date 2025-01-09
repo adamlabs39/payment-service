@@ -6,10 +6,10 @@ const DBSeeder = async () => {
     const transaction = await sequelizeInstance.transaction();
     try {
         await FaskesProfilesModel.create({
-            faskesUuid: "9d403ufjh43ufh3uf8430ihf",
+            faskesUuid: "019328c1-1931-793e-83d0-488bbe962dd4",
             code: "RS001",
             name: "RS Pusat Pertamina",
-            addressUuid: "9d403ufjh43ufh3uf8430ihf",
+            addressUuid: "019328c1-1931-793e-83d0-488bbe962dd4",
             phone: "021-1234567",
             email: "dekengane@pusat.com",
             website: "https://pusat.pertamina.com",
@@ -24,7 +24,7 @@ const DBSeeder = async () => {
         }, {transaction});
 
         await VoucherModel.create({
-            faskesUuid: "9d403ufjh43ufh3uf8430ihf",
+            faskesUuid: "019328c1-1931-793e-83d0-488bbe962dd4",
             qty: 10,
             name: "Voucher 1",
             code: "VCR001",

@@ -1,42 +1,21 @@
 import { paginationHelper } from "./utility.js";
 
-export default class Pagination {
-    static async init(model, args, filter = {}, options = {}, transformMap = {}, distinct = false) {
-        const page = args.page || 1;
-        const limit = args.limit || 10;
+export class KnexPagination {
+    static async init(query, args) {
+        const page = parseInt(args.page) || 1;
+        const limit = parseInt(args.limit) || 10;
         const offset = (page - 1) * limit;
 
-        const query = await model.findAndCountAll({
-            limit,
-            offset,
-            where: filter,
-            distinct,
-            ...options
-        });
+        const countQuery = query.clone().clearSelect().count('* as count').first();
+        const total = (await countQuery).count;
 
-        const data = await Pagination.transform(query.rows, transformMap);
+        const data = await query
+            .limit(limit)
+            .offset(offset);
 
         return {
             data,
-            pagination: paginationHelper(page, limit, query.count)
+            pagination: paginationHelper(page, limit, total)
         };
-    }
-
-    static async transform(data, transformMap) {
-        return data.map(row => {
-            let transformedRow = { ...row.get() };
-
-            for (const [key, transformFn] of Object.entries(transformMap)) {
-                if (typeof transformFn === 'function') {
-                    if (key === 'remove') {
-                        transformFn.forEach(k => delete transformedRow[k]);
-                    } else {
-                        transformedRow[key] = transformFn(transformedRow);
-                    }
-                }
-            }
-
-            return transformedRow;
-        });
     }
 }

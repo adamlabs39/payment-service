@@ -15,36 +15,28 @@ PaymentHistoryModel.init(
             type: DataTypes.STRING(255),
             allowNull: true,
         },
-        amount: {
-            type: DataTypes.FLOAT,
-            allowNull: false,
-        },
-        type: {
-            type: DataTypes.STRING(255),
-            allowNull: true,
-        },
-        accountMember: {
-            type: DataTypes.STRING(255),
-            allowNull: true,
-        },
-        paymentMethod: {
-            type: DataTypes.STRING(255),
-            allowNull: true,
-        },
-        file: {
-            type: DataTypes.BLOB,
-            allowNull: true,
-        },
-        petugas: {
-            type: DataTypes.STRING(255),
-            allowNull: true,
-        },
         kasirUuid: {
             type: DataTypes.STRING(255),
             allowNull: true,
         },
-        claimTo: {
-            type: DataTypes.STRING(255),
+        amount: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+        },
+        paymentType: {
+            type: DataTypes.ENUM('CASH', 'INSURANCE'),
+            allowNull: false,
+        },
+        paymentMethod: {
+            type: DataTypes.ENUM('CASH', 'DEBIT', 'TRANSFER', 'CREDIT'),
+            allowNull: true,
+        },
+        information: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+        note: {
+            type: DataTypes.TEXT,
             allowNull: true,
         },
         ...fieldTime,

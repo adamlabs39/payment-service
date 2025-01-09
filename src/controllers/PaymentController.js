@@ -44,10 +44,52 @@ export default class PaymentController {
         }
     }
 
+    static async applyDiscount(req, res, next) {
+        try {
+            const uuid = req.params.uuid;
+            const data = req.body;
+            const result = await PaymentService.applyDiscount(uuid, data);
+            return res.json(successResponse("Success", result));
+        } catch (error) {
+            next(error);
+        }
+    }
+
     static async closeBill(req, res, next) {
         try {
             const uuid = req.params.uuid;
             const result = await PaymentService.closeBill(uuid);
+            return res.json(successResponse("Success", result));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async paymentBill(req, res, next) {
+        try {
+            const uuid = req.params.uuid;
+            const data = req.body;
+            const result = await PaymentService.paymentBill(uuid, data);
+            return res.json(successResponse("Success Pay Bill", result));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async getPaymentHistory(req, res, next) {
+        try {
+            const uuid = req.params.uuid;
+            const result = await PaymentService.getPaymentHistory(uuid);
+            return res.json(successResponse("Success", result));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async getDetailPayment(req, res, next) {
+        try {
+            const uuid = req.params.uuid;
+            const result = await PaymentService.getDetailPayment(uuid);
             return res.json(successResponse("Success", result));
         } catch (error) {
             next(error);
