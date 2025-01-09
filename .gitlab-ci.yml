@@ -1,0 +1,11 @@
+stages:
+  - build-deploy
+
+build-deploy:
+  stage: build-deploy
+  only:
+    - dev-deployment
+  before_script:
+    - docker compose --env-file /home/admin/adameds/.env.dev.payment down --rmi all
+  script:
+    - docker compose --env-file /home/admin/adameds/.env.dev.payment up -d
