@@ -7,8 +7,13 @@ import VoucherModel from "./voucher-model.js";
 import CashierReportModel from "./cashier-report-model.js";
 
 const MODEL_MERGE = [
-    PaymentHistoryModel,
-    CashierReportModel,
+    // PaymentHistoryModel,
+    // CashierReportModel,
+    // BillItemModel,
+    // BillModel,
+    // FaskesProfilesModel,
+    // ServiceBillModel,
+    // VoucherModel
 ];
 
 

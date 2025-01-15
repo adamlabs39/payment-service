@@ -5,3 +5,4 @@
 .npmrc
 *.key
 *.pem
+*.http

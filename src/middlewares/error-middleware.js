@@ -7,6 +7,7 @@ import {UniqueConstraintError} from "sequelize";
 import {ZodError} from "zod";
 import zodErrorParser from "../helpers/zod-error-parser.js";
 import CantProcessDataException from "../exceptions/CantProcessDataException.js";
+import AuthorizationSdkException from "@adameds/authorization-sdk/sdkException";
 
 const errorMiddleware = (error, request, response, nextFunction) => {
   console.error("Error Middleware", error);
@@ -29,7 +30,11 @@ const errorMiddleware = (error, request, response, nextFunction) => {
   }
   else if( error instanceof ZodError){
     response.status(400).json(errorResponse("Validation Error", zodErrorParser(error.errors)));
-  }else{
+  }
+  else if( error instanceof AuthorizationSdkException){
+    response.status(error.code).json(error.message);
+  }
+  else{
     response.status(500).json(errorResponse(error.message))
   }
 };
