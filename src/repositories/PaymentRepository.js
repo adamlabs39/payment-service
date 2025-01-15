@@ -616,11 +616,13 @@ export default class PaymentRepository {
             const getCashier = await CashierRepository.CheckCashierShift();
             if (!getCashier) throw new BadRequestException('Cashier is not opened');
             const bill = await this.GetTotalBill(uuid);
-            let totalPayment = await this.GetPaymentHistory(uuid);
+            let totalPayment = (await this.GetPaymentHistory(uuid)).payment_history
+
             totalPayment = totalPayment.reduce((acc, row) => {
                 acc += row.amount;
                 return acc;
             }, 0);
+
             if (totalPayment >= bill.grand_total || bill.payment_status) throw new BadRequestException('Bill already paid');
             let updatedPaymentStatus = false;
             if (totalPayment + data.amount >= bill.grand_total) {
