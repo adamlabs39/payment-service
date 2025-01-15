@@ -10,5 +10,4 @@ build-deploy:
     - echo "//gitlab.com/api/v4/groups/93029767/-/packages/npm/:_authToken=$AUTH_TOKEN" >> .npmrc
     - docker compose --env-file /home/admin/adameds/.env.dev.payment down --rmi all
   script:
-    - ls -a
     - docker compose --env-file /home/admin/adameds/.env.dev.payment up -d
