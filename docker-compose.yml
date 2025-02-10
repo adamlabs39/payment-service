@@ -17,7 +17,7 @@ services:
     volumes:
       - type: bind
         target: /adameds-payment/.env.vault
-        source: /home/admin/adameds/.env.vault
+        source: /home/engineer/adameds/.env.vault
 networks:
   payment-network:
     driver: bridge
