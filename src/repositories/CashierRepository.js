@@ -22,6 +22,8 @@ export default class CashierRepository {
                 throw new CantProcessDataException('Shift cashier is still open');
             }
 
+            
+
             return db('cashier_report')
                 .insert({
                     uuid: uuidv7(),
@@ -50,9 +52,10 @@ export default class CashierRepository {
                 .where('type', 'SHIFT')
                 .orderBy('id', 'desc')
                 .first();
-            if (!check) {
-                throw new CantProcessDataException('Shift cashier is already closed');
-            }
+
+                if (!check) {
+                    throw new CantProcessDataException('Shift cashier is already closed');
+                }
 
             const timeClose = moment().unix();
             const paymentHistory = await db('payment_history')
@@ -68,7 +71,9 @@ export default class CashierRepository {
                     'status_ppn',
                 )
                 .first();
-
+            if(!faskesProfile){
+                throw new CantProcessDataException(`Faskes profile with uuid ${faskesUuid} not found`);
+            }
             const cash = parseFloat(data.cash) || 0;
             const debit = parseFloat(data.debit) || 0;
             const insurance = parseFloat(data.insurance) || 0;
@@ -162,6 +167,7 @@ export default class CashierRepository {
                     'status',
                     'transaction_total',
                 )
+
             const result = {};
             if(getDaysShift.length > 0){
                 // update cashier_report_uuid
