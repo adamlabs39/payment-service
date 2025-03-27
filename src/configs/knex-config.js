@@ -14,7 +14,8 @@ const knexConfig = {
         password: DB_PASSWORD,
         database: DB_NAME,
         port: DB_PORT,
-    }
+    },
+    debug: true,
 }
 
 

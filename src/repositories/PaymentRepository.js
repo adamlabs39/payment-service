@@ -9,102 +9,34 @@ import { calculateDiscount, calculateVoucher } from "../helpers/utility.js";
 import CashierRepository from "./CashierRepository.js";
 import { uuidv7 } from "uuidv7";
 import moment from "moment";
-import BillModel from "../models/bill-model.js";
-import { Op } from "sequelize";
-import { PatientModel } from "@adameds/model-sdk/admisi";
-
 export default class PaymentRepository {
   static async FindBill(search) {
-    BillModel.hasOne(PatientModel, {
-      constraints: false,
-      foreignKey: "uuid",
-      sourceKey: "patientUuid",
-    });
-    PatientModel.belongsTo(BillModel, {
-      constraints: false,
-      foreignKey: "patientUuid",
-      targetKey: "uuid",
-    });
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
-      let whereClause;
-      if (search) {
-        whereClause = {
-          [Op.and]: [
-            {
-              faskesUuid: faskesUuid,
-            },
-            {
-              deletedAt: {
-                [Op.is]: null,
-              },
-            },
-            {
-              [Op.or]: [
-                {
-                  invoiceCode: {
-                    [Op.like]: `%${search}%`,
-                  },
-                },
-                {
-                  billCode: {
-                    [Op.like]: `%${search}%`,
-                  },
-                },
-              ],
-            },
-          ],
-        };
-      } else {
-        whereClause = {
-          [Op.and]: [
-            {
-              faskesUuid: faskesUuid,
-            },
-            {
-              deletedAt: {
-                [Op.is]: null,
-              },
-            },
-          ],
-        };
-      }
-      const bills = await BillModel.findAll({
-        where: whereClause,
-        include: [
-          {
-            model: PatientModel,
-            attributes: ["uuid", "faskesUuid", "noRm", "title", "name", "identity", "noIdentity", "birthDetailUuid", "gender", "phone", "religion", "addressUuid", "language", "motherName", "maritialStatus", "isNewBorn", "unggahBerkas", "createdAt", "updatedAt", "deletedAt"],
-            required: false,
-          },
-        ],
-      });
-      if (bills.length > 0) return bills.map((b) => b.toJSON());
-      else return [];
-      // return await db('bills as b')
-      //     .leftJoin('patients as p', db.raw('b.patient_uuid::uuid'), 'p.uuid')
-      //     .select(
-      //         'b.uuid',
-      //         'b.name as patient_name',
-      //         'b.invoice_code',
-      //         'b.bill_code',
-      //         'b.grand_total',
-      //         'b.patient_uuid',
-      //         db.raw(`
-      //             CASE
-      //                 WHEN b.merge_type = 1 THEN 'family_bill'
-      //                 WHEN b.merge_type = 2 THEN 'previous_bill'
-      //                 ELSE null
-      //             END as merged_bill
-      //         `),
-      //     )
-      //     .where('b.faskes_uuid', faskesUuid)
-      //     .where('b.status', 0)
-      //     .andWhere(function () {
-      //         this.where('p.no_rm', 'like', `%${search}%`)
-      //             .orWhere('b.invoice_code', 'like', `%${search}%`)
-      //             .orWhere('b.bill_code', 'like', `%${search}%`);
-      //     });
+      return await db('bills as b')
+          .leftJoin('patients as p', db.raw('b.patient_uuid'), 'p.uuid')
+          .select(
+              'b.uuid',
+              'b.name as patient_name',
+              'b.invoice_code',
+              'b.bill_code',
+              'b.grand_total',
+              'b.patient_uuid',
+              db.raw(`
+                  CASE
+                      WHEN b.merge_type = 1 THEN 'family_bill'
+                      WHEN b.merge_type = 2 THEN 'previous_bill'
+                      ELSE null
+                  END as merged_bill
+              `),
+          )
+          .where('b.faskes_uuid', faskesUuid)
+          .where('b.status', 0)
+          .andWhere(function () {
+              this.where('p.no_rm', 'like', `%${search}%`)
+                  .orWhere('b.invoice_code', 'like', `%${search}%`)
+                  .orWhere('b.bill_code', 'like', `%${search}%`);
+          });
     } catch (error) {
       throw error;
     }
