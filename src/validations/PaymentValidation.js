@@ -13,7 +13,7 @@ export default class PaymentValidation{
         information: z.string().nullable(),
     }).superRefine((data, ctx) => {
         // Conditional validation
-        if (data.paymentType === 'CASH' && !data.paymentMethod) {
+        if (data.payment_type === 'CASH' && !data.payment_method) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Payment method is required when payment type is CASH.',
