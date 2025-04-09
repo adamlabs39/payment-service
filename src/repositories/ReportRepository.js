@@ -51,9 +51,9 @@ export default class ReportRepository {
     static async GetReportPayment(params) {
         const availShiftType = ['1', '2', '3']; // 1 = Pagi, 2 = Siang, 3 = Malam
         const query = db('payment_history as ph')
-            .leftJoin('bills as b', db.raw('ph.bill_uuid::uuid'), 'b.uuid')
-            .leftJoin('patients as p', db.raw('b.patient_uuid::uuid'), 'p.uuid')
-            .leftJoin('cashier_report as cr', db.raw('ph.kasir_uuid::uuid'), 'cr.uuid')
+            .leftJoin('bills as b', db.raw('ph.bill_uuid'), 'b.uuid')
+            .leftJoin('patients as p', db.raw('b.patient_uuid'), 'p.uuid')
+            .leftJoin('cashier_report as cr', db.raw('ph.kasir_uuid'), 'cr.uuid')
             .select(
                 'ph.uuid',
                 'p.no_rm',
