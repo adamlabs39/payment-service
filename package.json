@@ -32,5 +32,8 @@
     "zod": "^3.23.8"
   },
   "author": "hafisrabbani",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@faker-js/faker": "^9.7.0"
+  }
 }
