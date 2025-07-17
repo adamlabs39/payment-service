@@ -4,20 +4,20 @@ services:
       context: ./
       dockerfile: Dockerfile
       no_cache: true
-    container_name: adameds-payment
+    container_name: api-adameds-payment
     image: adameds/payment-service:dev
     ports:
       - ${APP_PORT}:${APP_PORT}
     restart: always
     environment:
-      DOTENV_KEY: ${DOTENV_KEY}
+      INFISICAL_TOKEN: ${INFISICAL_TOKEN}
       APP_MODE: ${APP_MODE}
     networks:
       - payment-network
-    volumes:
-      - type: bind
-        target: /adameds-payment/.env.vault
-        source: /home/engineer/adameds/.env.vault
+    # volumes:
+    #   - type: bind
+    #     target: /adameds-payment/.env.vault
+    #     source: /home/engineer/adameds/.env.vault
 networks:
   payment-network:
     driver: bridge

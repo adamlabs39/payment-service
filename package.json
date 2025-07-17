@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@adameds/authorization-sdk": "^1.0.5",
-    "@adameds/model-sdk": "^1.0.65",
+    "@adameds/model-sdk": "^1.0.78",
     "commander": "^12.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

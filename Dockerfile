@@ -5,5 +5,6 @@ ENV APP_PORT=9092
 WORKDIR /adameds-payment
 COPY . .
 RUN npm install
+RUN npm install -g @infisical/cli
 EXPOSE $APP_PORT/tcp
 CMD [ "npm", "run", "start" ]
