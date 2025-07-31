@@ -22,8 +22,6 @@ export default class CashierRepository {
                 throw new CantProcessDataException('Shift cashier is still open');
             }
 
-            
-
             return db('cashier_report')
                 .insert({
                     uuid: uuidv7(),
@@ -63,6 +61,18 @@ export default class CashierRepository {
                 .orderBy('id', 'desc')
 
             const totalPayment = paymentHistory.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+            
+            const cash = parseFloat(data.cash) || 0;
+            const debit = parseFloat(data.debit) || 0;
+            const insurance = parseFloat(data.insurance) || 0;
+            // Ini adalah total menurut fisik
+            const totalActual = cash + debit + insurance;
+            
+            // Logika rekonsiliasi
+            if (totalPayment !== totalActual) {
+                const selisih = totalPayment - totalActual;
+                throw new CantProcessDataException(`Total payment is ${totalPayment} but total actual is ${totalActual}. Selisih: ${selisih}`);
+            }
 
             const faskesProfile = await db('faskes_profiles')
                 .where('faskes_uuid', faskesUuid)
@@ -74,9 +84,6 @@ export default class CashierRepository {
             if(!faskesProfile){
                 throw new CantProcessDataException(`Faskes profile with uuid ${faskesUuid} not found`);
             }
-            const cash = parseFloat(data.cash) || 0;
-            const debit = parseFloat(data.debit) || 0;
-            const insurance = parseFloat(data.insurance) || 0;
 
             await db('cashier_report')
                 .where('id', check.id)
@@ -86,7 +93,8 @@ export default class CashierRepository {
                     cash,
                     debit,
                     insurance,
-                    ppn: totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn : 0),
+                    // Memperbaiki perhitungan PPN
+                    ppn: totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0),
                     status: false,
                     transaction_total: paymentHistory.length,
                 });
@@ -98,15 +106,16 @@ export default class CashierRepository {
                 trx_count: paymentHistory.length,
                 system: {
                     total: totalPayment,
-                    ppn: faskesProfile.status_ppn ? faskesProfile.value_ppn : 0,
-                    ppn_value: totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn : 0),
-                    grand_total: totalPayment + (totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn : 0)),
+                    // Mengubah perhitungan PPN menjadi persen
+                    ppn: faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0,
+                    ppn_value: totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0),
+                    grand_total: totalPayment + (totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0)),
                 },
                 actual: {
                     cash: cash,
                     debit: debit,
                     insurance: insurance,
-                    total_payment: data.cash + data.debit + data.insurance,
+                    total_payment: totalActual,
                 }
             }
         } catch (error) {
@@ -139,6 +148,21 @@ export default class CashierRepository {
     static async CloseDayCashier() {
         try {
             const {faskesUuid} = Ctx.get(CTX_AUTHOR);
+            
+            // Validasi rekapitulasi harian sudah ada atau tidak
+            const startOfDay = moment().startOf('day').unix();
+            const endOfDay = moment().endOf('day').unix();
+
+            const checkToday = await db('cashier_report')
+                .where('faskes_uuid', faskesUuid)
+                .where('type', 'DAYS')
+                .whereBetween('created_at', [startOfDay, endOfDay])
+                .first();
+
+            if (checkToday) {
+                throw new CantProcessDataException('Daily closing has already been done for today');
+            }
+
             const trx = await db.transaction();
             const timeClose = moment().unix();
             const createCashierDay = await trx('cashier_report')

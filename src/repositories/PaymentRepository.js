@@ -13,8 +13,9 @@ export default class PaymentRepository {
   static async FindBill(search) {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
+      
       return await db('bills as b')
-          .leftJoin('patients as p', db.raw('b.patient_uuid'), 'p.uuid')
+          .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
           .select(
               'b.uuid',
               'b.name as patient_name',
@@ -31,74 +32,80 @@ export default class PaymentRepository {
               `),
           )
           .where('b.faskes_uuid', faskesUuid)
-          .where('b.status', 0)
+          .where('b.status', false)
           .andWhere(function () {
               this.where('p.no_rm', 'like', `%${search}%`)
                   .orWhere('b.invoice_code', 'like', `%${search}%`)
-                  .orWhere('b.bill_code', 'like', `%${search}%`);
+                  .orWhere('b.bill_code', 'like', `%${search}%`)
+                  .orWhere('b.name', 'like', `%${search}%`);
           });
     } catch (error) {
       throw error;
     }
   }
 
-  static async GetDetailBill(uuid) {
-    try {
-      const { faskesUuid } = Context.get(CTX_AUTHOR);
-      const checkIfFindIsMerge = await db("bills as b").where("b.uuid", uuid).select("b.merge_with").where("b.faskes_uuid", faskesUuid).first();
-      if (!checkIfFindIsMerge) throw new NotfoundException("Bill not found");
-      if (checkIfFindIsMerge.merge_with) throw new CantProcessDataException("Bill Was Merged with another bill");
+  static async _getBillDetails(uuid) {
+    const { faskesUuid } = Context.get(CTX_AUTHOR);
 
-      const bill = await db("bills as b")
-        .leftJoin("patients as p", db.raw("b.patient_uuid::uuid"), "p.uuid")
-        .leftJoin("service_bill as sb", db.raw("sb.bill_uuid::uuid"), "b.uuid")
-        .leftJoin("bill_item as bi", db.raw("bi.service_bill_uuid::uuid"), "sb.uuid")
-        .select(
-          "b.uuid",
-          "b.name as patient_name",
-          "b.invoice_code",
-          "b.bill_code",
-          "b.patient_uuid",
-          "p.gender",
-          "b.merge_with",
-          "b.grand_total",
-          "b.sub_total",
-          "b.ppn",
-          "b.admin_fee",
-          "b.voucher_code",
-          "b.voucher_value",
-          "b.voucher_type",
-          "b.close_bill",
-          "b.discount",
-          db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee ELSE 0 END) AS total_obat`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '3' THEN bi.price * bi.qty ELSE 0 END) AS total_alkes`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`)
-        )
-        .where(function () {
-          this.where("b.uuid", uuid).orWhere("b.merge_with", uuid);
-        })
-        .andWhere("b.faskes_uuid", faskesUuid)
-        .whereNull("b.deleted_at")
-        .whereNull("sb.deleted_at")
-        .whereNull("bi.deleted_at")
-        .groupBy(
-          "b.uuid",
-          "p.gender",
-          "b.name",
-          "b.invoice_code",
-          "b.bill_code",
-          "b.patient_uuid",
-          "b.grand_total",
-          "b.sub_total",
-          "b.ppn",
-          "b.admin_fee",
-          "b.voucher_code",
-          "b.voucher_value",
-          "b.voucher_type",
-          "b.close_bill"
-        );
+    const checkIfFindIsMerge = await db("bills as b")
+      .where("b.uuid", uuid)
+      .select("b.merge_with")
+      .where("b.faskes_uuid", faskesUuid)
+      .first();
+    
+    if (!checkIfFindIsMerge) throw new NotfoundException("Bill not found");
+    if (checkIfFindIsMerge.merge_with) throw new CantProcessDataException("Bill Was Merged with another bill");
+
+    const bill = await db("bills as b")
+      .leftJoin("patients as p", "b.patient_uuid", "p.uuid")
+      .leftJoin("service_bill as sb", "sb.bill_uuid", "b.uuid")
+      .leftJoin("bill_item as bi", "bi.service_bill_uuid", "sb.uuid")
+      .select(
+        "b.uuid",
+        "b.name as patient_name",
+        "b.invoice_code",
+        "b.bill_code",
+        "b.patient_uuid",
+        "p.gender",
+        "b.merge_with",
+        "b.grand_total",
+        "b.sub_total",
+        "b.ppn",
+        "b.admin_fee",
+        "b.voucher_code",
+        "b.voucher_value",
+        "b.voucher_type",
+        "b.close_bill",
+        "b.discount",
+        db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
+        db.raw(`SUM(CASE WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee ELSE 0 END) AS total_obat`),
+        db.raw(`SUM(CASE WHEN bi.category_code = '3' THEN bi.price * bi.qty ELSE 0 END) AS total_alkes`),
+        db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
+        db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`)
+      )
+      .where(function () {
+        this.where("b.uuid", uuid).orWhere("b.merge_with", uuid);
+      })
+      .andWhere("b.faskes_uuid", faskesUuid)
+      .whereNull("b.deleted_at")
+      .whereNull("sb.deleted_at")
+      .whereNull("bi.deleted_at")
+      .groupBy(
+        "b.uuid",
+        "p.gender",
+        "b.name",
+        "b.invoice_code",
+        "b.bill_code",
+        "b.patient_uuid",
+        "b.grand_total",
+        "b.sub_total",
+        "b.ppn",
+        "b.admin_fee",
+        "b.voucher_code",
+        "b.voucher_value",
+        "b.voucher_type",
+        "b.close_bill"
+      );
 
       if (!bill.length) throw new NotfoundException("Bill not found");
 
@@ -144,35 +151,44 @@ export default class PaymentRepository {
         });
       }
 
-      finalBill.grand_total = finalBill.sub_total + finalBill.sub_total * (finalBill.ppn / 100) + finalBill.admin_fee;
+      finalBill.grand_total = finalBill.sub_total + finalBill.ppn + finalBill.admin_fee;
+
+      finalBill._rawBillResult = bill;
+
+      return finalBill;
+
+  }
+
+  static async GetDetailBill(uuid) {
+    try {
+      const finalBill = await this._getBillDetails(uuid);
 
       const service_bill = await db("service_bill as sb")
-        .leftJoin("bills as b", db.raw("sb.bill_uuid::uuid"), "b.uuid")
+        .leftJoin("bills as b", "sb.bill_uuid", "b.uuid")
         .select(
           "sb.uuid",
+          "sb.bill_uuid",
+          "sb.type",
           "sb.practitioner_name",
           "sb.service_name",
           "sb.service_code",
-          "sb.layanan_uuid",
-          "sb.already_claim",
-          "sb.with_insurance",
-          "sb.type",
-          "sb.date",
-          db.raw(`CASE WHEN sb.bill_uuid = ? THEN FALSE ELSE TRUE END as is_merged`, [uuid]),
-          "b.merge_type"
+          "sb.created_at",
+          "sb.updated_at",
         )
         .where(function () {
           this.where("sb.bill_uuid", finalBill.uuid).orWhereIn(
             "sb.bill_uuid",
-            bill.map((b) => b.uuid)
+            finalBill._rawBillResult.map((b) => b.uuid)
           );
         })
         .whereNull("sb.deleted_at");
 
-      return {
-        ...finalBill,
-        service_bill,
-      };
+        delete finalBill._rawBillResult;
+
+        return {
+          ...finalBill,
+          service_bill,
+        };
     } catch (error) {
       throw error;
     }
@@ -182,53 +198,23 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const sb = !!(await db("service_bill as sb").where("sb.uuid", uuid).where("sb.faskes_uuid", faskesUuid).first());
+      if (!sb) throw new NotfoundException("Service Bill not found");
 
-      if (!sb) throw new NotfoundException("Bill not found");
+      const items = await db("bill_item as bi")
+            .where("bi.service_bill_uuid", uuid)
+            .select(
+                'bi.uuid',
+                'bi.item_name',
+                'bi.qty',
+                'bi.price',
+                'bi.price_item',
+                'bi.service_fee',
+                'bi.category_code',
+                'bi.additional_field',
+                'bi.date_used'
+            );
 
-      const groupedItems = await db("bill_item as bi")
-        .where("bi.service_bill_uuid", uuid)
-        .select(
-          db.raw(`
-                    CASE
-                        WHEN bi.category_code = '1' THEN 'tindakan'
-                        WHEN bi.category_code = '2' THEN 'obat'
-                        WHEN bi.category_code = '3' THEN 'alkes'
-                        WHEN bi.category_code = '4' THEN 'ruangan'
-                        WHEN bi.category_code = '5' THEN 'penunjang'
-                        ELSE 'unknown'
-                    END AS category
-                `)
-        )
-        .select(
-          db.raw(`
-                    JSON_AGG(
-                        JSON_BUILD_OBJECT(
-                            'date_used', bi.date_used,
-                            'item_name', bi.item_name,
-                            'qty', bi.qty,
-                            'price', bi.price,
-                            'service_fee', bi.service_fee,
-                            'addtional_field', bi.addtional_field
-                        )
-                    ) AS items
-                `)
-        )
-        .groupBy("category");
-      let result = {};
-      result.item = groupedItems.reduce((acc, row) => {
-        acc[row.category] = row.items;
-        return acc;
-      }, {});
-      result.total = 0;
-      groupedItems.forEach((row) => {
-        const total = row.items.reduce((acc, item) => {
-          acc += item.price * item.qty + item.service_fee;
-          return acc;
-        }, 0);
-        result.total += total;
-      });
-
-      return result;
+      return { items }
     } catch (error) {
       throw error;
     }
@@ -237,17 +223,24 @@ export default class PaymentRepository {
   static async getAllDetailBillItem(uuid) {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
-      const bill = await db("bills as b").where("b.uuid", uuid).where("b.faskes_uuid", faskesUuid).select("b.uuid", "b.patient_uuid", "b.name as patient_name").first();
+      const bill = await db("bills as b")
+        .where("b.uuid", uuid)
+        .where("b.faskes_uuid", faskesUuid)
+        .select("b.uuid", "b.patient_uuid", "b.name as patient_name")
+        .first();
+
       if (!bill) throw new NotfoundException("Bill not found");
+
       let patient = {
         external: true,
         patient_name: bill.patient_name,
       };
+
       if (bill.patient_uuid) {
         patient = await db("patients as p")
           .where("p.uuid", bill.patient_uuid)
-          .leftJoin("birth_details as bd", db.raw("p.birth_detail_uuid::uuid"), "bd.uuid")
-          .leftJoin("addresses as a", db.raw("p.address_uuid"), "a.uuid")
+          .leftJoin("birth_details as bd", "p.birth_detail_uuid", "bd.uuid")
+          .leftJoin("addresses as a", "p.address_uuid", "a.uuid")
           .select(
             "p.name as patient_name",
             "p.no_rm",
@@ -272,7 +265,7 @@ export default class PaymentRepository {
 
       const billDetail = await this.GetDetailBill(uuid);
       const serviceBill = billDetail.service_bill.map(async (sb) => {
-        sb.items = (await this.GetDetailBillItem(sb.uuid)).item;
+        sb.items = (await this.GetDetailBillItem(sb.uuid)).items;
         return sb;
       });
 
@@ -366,7 +359,7 @@ export default class PaymentRepository {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const bill = await this.GetTotalBill(bill_uuid);
       const history = await db("payment_history as ph")
-        .leftJoin("cashier_report as cr", db.raw("ph.kasir_uuid::uuid"), "cr.uuid")
+        .leftJoin("cashier_report as cr", "ph.kasir_uuid", "cr.uuid")
         .select("ph.payment_type", "ph.payment_method", "ph.information", "ph.note", "ph.amount", "ph.created_at", "cr.nama_kasir", "cr.shift_type")
         .where("ph.bill_uuid", bill_uuid)
         .where("ph.faskes_uuid", faskesUuid);
@@ -402,7 +395,7 @@ export default class PaymentRepository {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
 
     const serviceBill = await db("service_bill as sb")
-      .leftJoin("bills as b", db.raw("sb.bill_uuid::uuid"), "b.uuid")
+      .leftJoin("bills as b", "sb.bill_uuid", "b.uuid")
       .select(
         "sb.uuid",
         "sb.practitioner_name",
@@ -437,109 +430,8 @@ export default class PaymentRepository {
 
   static async GetTotalBill(uuid) {
     try {
-      const { faskesUuid } = Context.get(CTX_AUTHOR);
-      const checkIfFindIsMerge = await db("bills as b").where("b.uuid", uuid).select("b.merge_with").where("b.faskes_uuid", faskesUuid).first();
-      if (!checkIfFindIsMerge) throw new NotfoundException("Bill not found");
-      if (checkIfFindIsMerge.merge_with) throw new CantProcessDataException("Bill Was Merged with another bill");
-
-      const bill = await db("bills as b")
-        .leftJoin("patients as p", db.raw("b.patient_uuid::uuid"), "p.uuid")
-        .leftJoin("service_bill as sb", db.raw("sb.bill_uuid::uuid"), "b.uuid")
-        .leftJoin("bill_item as bi", db.raw("bi.service_bill_uuid::uuid"), "sb.uuid")
-        .select(
-          "b.uuid",
-          "b.name as patient_name",
-          "b.invoice_code",
-          "b.bill_code",
-          "b.patient_uuid",
-          "p.gender",
-          "b.merge_with",
-          "b.grand_total",
-          "b.sub_total",
-          "b.ppn",
-          "b.admin_fee",
-          "b.voucher_code",
-          "b.voucher_value",
-          "b.voucher_type",
-          "b.close_bill",
-          "b.discount",
-          "b.status as payment_status",
-          db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee ELSE 0 END) AS total_obat`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '3' THEN bi.price * bi.qty ELSE 0 END) AS total_alkes`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
-          db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`)
-        )
-        .where(function () {
-          this.where("b.uuid", uuid).orWhere("b.merge_with", uuid);
-        })
-        .andWhere("b.faskes_uuid", faskesUuid)
-        .whereNull("b.deleted_at")
-        .whereNull("sb.deleted_at")
-        .whereNull("bi.deleted_at")
-        .groupBy(
-          "b.uuid",
-          "p.gender",
-          "b.name",
-          "b.invoice_code",
-          "b.bill_code",
-          "b.patient_uuid",
-          "b.grand_total",
-          "b.sub_total",
-          "b.ppn",
-          "b.admin_fee",
-          "b.voucher_code",
-          "b.voucher_value",
-          "b.voucher_type",
-          "b.close_bill"
-        );
-
-      if (!bill.length) throw new NotfoundException("Bill not found");
-
-      const finalBill = bill.reduce((acc, b, index) => {
-        acc.uuid = acc.uuid || b.uuid;
-        acc.patient_name = acc.patient_name || b.patient_name;
-        acc.invoice_code = acc.invoice_code || b.invoice_code;
-        acc.bill_code = acc.bill_code || b.bill_code;
-        acc.patient_uuid = acc.patient_uuid || b.patient_uuid;
-        acc.gender = acc.gender || b.gender;
-        acc.ppn = acc.ppn || b.ppn;
-        acc.voucher_code = acc.voucher_code || b.voucher_code;
-        acc.voucher_value = acc.voucher_value || b.voucher_value;
-        acc.voucher_type = acc.voucher_type || b.voucher_type;
-        acc.discount = acc.discount || b.discount;
-        acc.close_bill = acc.close_bill || b.close_bill;
-
-        if (index === 0) {
-          acc.admin_fee = b.admin_fee;
-        }
-
-        acc.sub_total = (acc.sub_total || 0) + b.sub_total;
-        acc.total_tindakan = (acc.total_tindakan || 0) + (b.total_tindakan || 0);
-        acc.total_obat = (acc.total_obat || 0) + (b.total_obat || 0);
-        acc.total_alkes = (acc.total_alkes || 0) + (b.total_alkes || 0);
-        acc.total_ruangan = (acc.total_ruangan || 0) + (b.total_ruangan || 0);
-        acc.total_penunjang = (acc.total_penunjang || 0) + (b.total_penunjang || 0);
-        acc.payment_status = b.payment_status;
-        return acc;
-      }, {});
-
-      if (finalBill.voucher_code && finalBill.voucher_value && finalBill.voucher_type) {
-        finalBill.sub_total = calculateVoucher({
-          amount: finalBill.sub_total,
-          type: finalBill.voucher_type,
-          value: finalBill.voucher_value,
-        });
-      }
-      if (finalBill.discount && finalBill.discount > 0) {
-        finalBill.sub_total = calculateDiscount({
-          amount: finalBill.sub_total,
-          discount: finalBill.discount,
-        });
-      }
-
-      finalBill.grand_total = finalBill.sub_total + finalBill.sub_total * (finalBill.ppn / 100) + finalBill.admin_fee;
-
+      const finalBill = await this._getBillDetails(uuid);
+      delete finalBill._rawBillResult;
       return finalBill;
     } catch (error) {
       throw error;

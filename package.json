@@ -9,7 +9,7 @@
     "start": "node ./src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "sync-db": "node ./src/cli.js sync",
-    "seed-db": "node ./src/cli.js seed"
+    "seed-db": "node src/seeders/run-seeder.js"
   },
   "dependencies": {
     "@adameds/authorization-sdk": "^1.0.5",
