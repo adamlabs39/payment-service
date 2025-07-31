@@ -9,6 +9,7 @@ import { calculateDiscount, calculateVoucher } from "../helpers/utility.js";
 import CashierRepository from "./CashierRepository.js";
 import { uuidv7 } from "uuidv7";
 import moment from "moment";
+import { query } from "express";
 export default class PaymentRepository {
   static async FindBill(search) {
     try {
@@ -201,20 +202,65 @@ export default class PaymentRepository {
       if (!sb) throw new NotfoundException("Service Bill not found");
 
       const items = await db("bill_item as bi")
-            .where("bi.service_bill_uuid", uuid)
-            .select(
-                'bi.uuid',
-                'bi.item_name',
-                'bi.qty',
-                'bi.price',
-                'bi.price_item',
-                'bi.service_fee',
-                'bi.category_code',
-                'bi.additional_field',
-                'bi.date_used'
-            );
+        .where("bi.service_bill_uuid", uuid)
+        .select(
+          'bi.uuid',
+          'bi.item_name',
+          'bi.qty',
+          'bi.price',
+          'bi.price_item',
+          'bi.service_fee',
+          'bi.category_code',
+          'bi.additional_field',
+          'bi.date_used'
+        );
 
-      return { items }
+      const groupedResult = {
+        tindakan: [],
+        penunjang: [],
+        obat: [],
+        alkes: [],
+        ruangan: []
+      };
+  
+      let totalKeseluruhan = 0;
+
+      items.forEach(item => {
+        const newItem = {
+          uuid: item.uuid,
+          dateUsed: item.date_used,
+          itemName: item.item_name,
+          qty: item.qty,
+          price: item.price,
+          serviceFee: item.service_fee,
+          additionalField: item.additional_field
+        };
+
+        totalKeseluruhan += (item.price * item.qty) + (item.service_fee || 0);
+
+        switch (item.category_code) {
+          case '1':
+            groupedResult.tindakan.push(newItem);
+            break;
+          case '2':
+            groupedResult.obat.push(newItem);
+            break;
+          case '3':
+            groupedResult.alkes.push(newItem);
+            break;
+          case '4':
+            groupedResult.ruangan.push(newItem);
+            break;
+          case '5':
+            groupedResult.penunjang.push(newItem);
+            break;
+        }
+      });
+
+      return {
+        item: groupedResult,
+        total: totalKeseluruhan
+      };
     } catch (error) {
       throw error;
     }
@@ -265,7 +311,7 @@ export default class PaymentRepository {
 
       const billDetail = await this.GetDetailBill(uuid);
       const serviceBill = billDetail.service_bill.map(async (sb) => {
-        sb.items = (await this.GetDetailBillItem(sb.uuid)).items;
+        sb.items = (await this.GetDetailBillItem(sb.uuid));
         return sb;
       });
 
@@ -394,7 +440,7 @@ export default class PaymentRepository {
 
     const { faskesUuid } = Context.get(CTX_AUTHOR);
 
-    const serviceBill = await db("service_bill as sb")
+    const serviceBill = db("service_bill as sb")
       .leftJoin("bills as b", "sb.bill_uuid", "b.uuid")
       .select(
         "sb.uuid",
@@ -404,7 +450,7 @@ export default class PaymentRepository {
         "sb.type as service_type",
         "b.invoice_code",
         "b.bill_code as service_bill_code",
-        "b.date as service_date",
+        "b.created_at as service_date",
         "b.patient_uuid",
         "b.name as patient_name",
         "b.status as payment_status",
@@ -426,6 +472,8 @@ export default class PaymentRepository {
     if (params.filter_payment) {
       serviceBill.where("sb.with_insurance", convertPayment(params.filter_payment));
     }
+
+    return await query;
   }
 
   static async GetTotalBill(uuid) {
