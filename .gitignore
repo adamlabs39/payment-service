@@ -5,4 +5,5 @@
 .npmrc
 *.key
 *.pem
+**/src/seed
 *.http
