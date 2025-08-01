@@ -168,13 +168,16 @@ export default class PaymentRepository {
         .leftJoin("bills as b", "sb.bill_uuid", "b.uuid")
         .select(
           "sb.uuid",
-          "sb.bill_uuid",
-          "sb.type",
           "sb.practitioner_name",
           "sb.service_name",
           "sb.service_code",
-          "sb.created_at",
-          "sb.updated_at",
+          "sb.layanan_uuid",
+          "sb.already_claim",
+          "sb.with_insurance",
+          "sb.type",
+          "sb.date",
+          db.raw(`CASE WHEN sb.bill_uuid = ? THEN FALSE ELSE TRUE END as is_merged`, [uuid]),
+          "b.merge_type"
         )
         .where(function () {
           this.where("sb.bill_uuid", finalBill.uuid).orWhereIn(
