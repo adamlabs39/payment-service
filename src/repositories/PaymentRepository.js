@@ -13,37 +13,39 @@ import { query } from "express";
 export default class PaymentRepository {
   static async FindBill(search) {
     try {
-      const { faskesUuid } = Context.get(CTX_AUTHOR);
-      
-      return await db('bills as b')
-          .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
-          .select(
-              'b.uuid',
-              'b.name as patient_name',
-              'b.invoice_code',
-              'b.bill_code',
-              'b.grand_total',
-              'b.patient_uuid',
-              // total paid
-              db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
-              db.raw(`
-                  CASE
-                      WHEN b.merge_type = 1 THEN 'family_bill'
-                      WHEN b.merge_type = 2 THEN 'previous_bill'
-                      ELSE null
-                  END as merged_bill
-              `),
-          )
-          .where('b.faskes_uuid', faskesUuid)
-          .where('b.close_bill', false)
-          .andWhere(function () {
-              this.where('p.no_rm', 'like', `%${search}%`)
-                  .orWhere('b.invoice_code', 'like', `%${search}%`)
-                  .orWhere('b.bill_code', 'like', `%${search}%`)
-                  .orWhere('b.name', 'like', `%${search}%`);
-          });
+        const { faskesUuid } = Context.get(CTX_AUTHOR);
+        
+        const bills = await db('bills as b')
+            .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
+            .select(
+                'b.uuid',
+                'b.name as patient_name',
+                'b.invoice_code',
+                'b.bill_code',
+                'b.grand_total',
+                'b.patient_uuid',
+                'b.close_bill',
+                db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`)
+            )
+            .where('b.faskes_uuid', faskesUuid)
+            .where('b.close_bill', false)
+            .andWhere(function () {
+                this.where('p.no_rm', 'ilike', `%${search}%`)
+                    .orWhere('b.invoice_code', 'ilike', `%${search}%`)
+                    .orWhere('b.bill_code', 'ilike', `%${search}%`)
+                    .orWhere('b.name', 'ilike', `%${search}%`);
+            });
+
+        bills.forEach(bill => {
+            const totalPaid = parseFloat(bill.total_paid) || 0;
+            const grandTotal = parseFloat(bill.grand_total) || 0;
+            bill.paid = totalPaid >= grandTotal;
+        });
+
+        return bills;
+
     } catch (error) {
-      throw error;
+        throw error;
     }
   }
 
@@ -80,6 +82,7 @@ export default class PaymentRepository {
         "b.voucher_type",
         "b.close_bill",
         "b.discount",
+        db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
         db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
         db.raw(`SUM(CASE WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee ELSE 0 END) AS total_obat`),
         db.raw(`SUM(CASE WHEN bi.category_code = '3' THEN bi.price * bi.qty ELSE 0 END) AS total_alkes`),
@@ -136,6 +139,7 @@ export default class PaymentRepository {
         acc.total_alkes = (acc.total_alkes || 0) + (b.total_alkes || 0);
         acc.total_ruangan = (acc.total_ruangan || 0) + (b.total_ruangan || 0);
         acc.total_penunjang = (acc.total_penunjang || 0) + (b.total_penunjang || 0);
+        acc.total_paid = (acc.total_paid || 0) + (parseFloat(b.total_paid) || 0);
 
         return acc;
       }, {});
@@ -156,10 +160,13 @@ export default class PaymentRepository {
 
       finalBill.grand_total = finalBill.sub_total + finalBill.ppn + finalBill.admin_fee;
 
+      const totalPaid = parseFloat(finalBill.total_paid) || 0;
+      const grandTotal = parseFloat(finalBill.grand_total) || 0;
+      finalBill.paid = totalPaid >= grandTotal;
+
       finalBill._rawBillResult = bill;
 
       return finalBill;
-
   }
 
   static async GetDetailBill(uuid) {
@@ -391,8 +398,14 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
+
       if (!bill) throw new NotfoundException("Bill not found");
       if (bill.close_bill) throw new BadRequestException("Bill already closed");
+
+      const paymentInfo = await this.GetPaymentHistory(uuid);
+      if (!paymentInfo.is_paid) {
+          throw new CantProcessDataException("Cannot close an unpaid bill. Please complete the payment first.");
+      }
 
       await db.transaction(async (trx) => {
         await trx("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).update({
