@@ -24,6 +24,8 @@ export default class PaymentRepository {
               'b.bill_code',
               'b.grand_total',
               'b.patient_uuid',
+              // total paid
+              db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
               db.raw(`
                   CASE
                       WHEN b.merge_type = 1 THEN 'family_bill'
@@ -33,7 +35,7 @@ export default class PaymentRepository {
               `),
           )
           .where('b.faskes_uuid', faskesUuid)
-          .where('b.status', false)
+          .where('b.close_bill', false)
           .andWhere(function () {
               this.where('p.no_rm', 'like', `%${search}%`)
                   .orWhere('b.invoice_code', 'like', `%${search}%`)
@@ -494,15 +496,19 @@ export default class PaymentRepository {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const getCashier = await CashierRepository.CheckCashierShift();
       if (!getCashier) throw new BadRequestException("Cashier is not opened");
-      const bill = await this.GetTotalBill(uuid);
-      let totalPayment = (await this.GetPaymentHistory(uuid)).payment_history;
 
-      totalPayment = totalPayment.reduce((acc, row) => {
-        acc += row.amount;
-        return acc;
+      const bill = await this.GetTotalBill(uuid);
+      const history = (await this.GetPaymentHistory(uuid)).payment_history;
+
+      const totalPayment = history.reduce((acc, row) => {
+        return acc + (parseFloat(row.amount) || 0);
       }, 0);
 
-      if (totalPayment >= bill.grand_total || bill.payment_status) throw new BadRequestException("Bill already paid");
+      const epsilon = 0.001; 
+      if (totalPayment >= (bill.grand_total - epsilon) || bill.payment_status) {
+          throw new BadRequestException("Bill already paid");
+      }
+
       let updatedPaymentStatus = false;
       if (totalPayment + data.amount >= bill.grand_total) {
         updatedPaymentStatus = true;
