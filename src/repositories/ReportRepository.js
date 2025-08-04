@@ -28,7 +28,7 @@ export default class ReportRepository {
                                     ELSE 'N/A'
                                 END, ', ')
                              FROM cashier_report AS cr2 
-                             WHERE cr2.cashier_report_uuid::uuid = cr.uuid::uuid)
+                             WHERE cr2.cashier_report_uuid = cr.uuid)
                         ELSE NULL 
                     END as shift_list`
                     )
