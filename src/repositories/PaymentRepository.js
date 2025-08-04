@@ -10,6 +10,7 @@ import CashierRepository from "./CashierRepository.js";
 import { uuidv7 } from "uuidv7";
 import moment from "moment";
 import { query } from "express";
+
 export default class PaymentRepository {
   static async FindBill(search) {
     try {
@@ -210,8 +211,8 @@ export default class PaymentRepository {
   static async GetDetailBillItem(uuid) {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
-      const sb = !!(await db("service_bill as sb").where("sb.uuid", uuid).where("sb.faskes_uuid", faskesUuid).first());
-      if (!sb) throw new NotfoundException("Service Bill not found");
+      const sbExists = !!(await db("service_bill as sb").where("sb.uuid", uuid).where("sb.faskes_uuid", faskesUuid).first());
+      if (!sbExists) throw new NotfoundException("Service Bill not found");
 
       const items = await db("bill_item as bi")
         .where("bi.service_bill_uuid", uuid)
@@ -228,13 +229,13 @@ export default class PaymentRepository {
         );
 
       const groupedResult = {
-        tindakan: [],
-        penunjang: [],
-        obat: [],
-        alkes: [],
-        ruangan: []
+        tindakan: { list: [], total: 0 },
+        penunjang: { list: [], total: 0 },
+        obat: { list: [], total: 0 },
+        alkes: { list: [], total: 0 },
+        ruangan: { list: [], total: 0 }
       };
-  
+      
       let totalKeseluruhan = 0;
 
       items.forEach(item => {
@@ -248,23 +249,29 @@ export default class PaymentRepository {
           additionalField: item.additional_field
         };
 
-        totalKeseluruhan += (item.price * item.qty) + (item.service_fee || 0);
+        const itemTotal = (item.price * item.qty) + (item.service_fee || 0);
+        totalKeseluruhan += itemTotal;
 
         switch (item.category_code) {
           case '1':
-            groupedResult.tindakan.push(newItem);
+            groupedResult.tindakan.list.push(newItem);
+            groupedResult.tindakan.total += itemTotal;
             break;
           case '2':
-            groupedResult.obat.push(newItem);
+            groupedResult.obat.list.push(newItem);
+            groupedResult.obat.total += itemTotal;
             break;
           case '3':
-            groupedResult.alkes.push(newItem);
+            groupedResult.alkes.list.push(newItem);
+            groupedResult.alkes.total += itemTotal;
             break;
           case '4':
-            groupedResult.ruangan.push(newItem);
+            groupedResult.ruangan.list.push(newItem);
+            groupedResult.ruangan.total += itemTotal;
             break;
           case '5':
-            groupedResult.penunjang.push(newItem);
+            groupedResult.penunjang.list.push(newItem);
+            groupedResult.penunjang.total += itemTotal;
             break;
         }
       });
@@ -402,11 +409,6 @@ export default class PaymentRepository {
       if (!bill) throw new NotfoundException("Bill not found");
       if (bill.close_bill) throw new BadRequestException("Bill already closed");
 
-      const paymentInfo = await this.GetPaymentHistory(uuid);
-      if (!paymentInfo.is_paid) {
-          throw new CantProcessDataException("Cannot close an unpaid bill. Please complete the payment first.");
-      }
-
       await db.transaction(async (trx) => {
         await trx("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).update({
           close_bill: true,
@@ -445,53 +447,75 @@ export default class PaymentRepository {
   }
 
   static async getClosedBill(params) {
-    const filterChip = {
-      IGD: ["IGD"],
-      RI: ["RI"],
-      RJ: ["RJ"],
-      APS: ["OTC", "LAB", "FISIO"],
-    };
+    try {
+      const { faskesUuid } = Context.get(CTX_AUTHOR);
 
-    const convertPayment = (code) => {
-      return code === 2 ? "insurance" : "cash";
-    };
+      const filterChip = {
+        IGD: ["IGD"],
+        RI: ["RI"],
+        RJ: ["RJ"],
+        APS: ["OTC", "LAB", "FISIO"],
+      };
 
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
+      const convertPayment = (paymentMethod) => {
+        return paymentMethod === 'ASURANSI';
+      };
 
-    const serviceBill = db("service_bill as sb")
-      .leftJoin("bills as b", "sb.bill_uuid", "b.uuid")
-      .select(
-        "sb.uuid",
-        "sb.practitioner_name",
-        "sb.service_name",
-        "sb.service_code as transaction_code",
-        "sb.type as service_type",
-        "b.invoice_code",
-        "b.bill_code as service_bill_code",
-        "b.created_at as service_date",
-        "b.patient_uuid",
-        "b.name as patient_name",
-        "b.status as payment_status",
-        db.raw(`CASE WHEN sb.with_insurance = TRUE THEN 2 ELSE 1 END as payment_method`)
-      )
-      .where("b.faskes_uuid", faskesUuid)
-      .whereNull("sb.deleted_at");
+      const query = db('bills as b')
+        .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
+        .select(
+          'b.uuid',
+          'b.name as patient_name',
+          'b.invoice_code',
+          'b.bill_code',
+          'b.grand_total',
+          'b.patient_uuid',
+          'b.status as is_paid',
+          db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
+          db.raw(`(SELECT STRING_AGG(DISTINCT sb.type, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type`)
+        )
+        .where('b.faskes_uuid', faskesUuid)
+        .where('b.close_bill', true);
 
-    if (params.search) {
-      serviceBill.where(function () {
-        this.where("b.name", "like", `%${params.search}%`).orWhere("b.invoice_code", "like", `%${params.search}%`);
-      });
+      if (params.search) {
+        query.andWhere(function () {
+          this.where('b.name', 'ilike', `%${params.search}%`)
+            .orWhere('p.no_rm', 'ilike', `%${params.search}%`)
+            .orWhere('b.invoice_code', 'ilike', `%${params.search}%`);
+        });
+      }
+
+      if (params.status === 'LUNAS') {
+        query.where('b.status', true);
+      } else if (params.status === 'PIUTANG') {
+        query.where('b.status', false);
+      }
+
+      if (params.start_date && params.end_date) {
+        query.whereBetween('b.updated_at', [params.start_date, params.end_date]);
+      }
+
+      if (params.filter_type && filterChip[params.filter_type]) {
+        query.whereExists(function() {
+            this.select(1)
+                .from('service_bill as sb')
+                .whereRaw('sb.bill_uuid = b.uuid')
+                .whereIn('sb.type', filterChip[params.filter_type]);
+        });
+      }
+
+      if (params.filter_payment) {
+        query.whereExists(function() {
+            this.select(1)
+                .from('service_bill as sb')
+                .whereRaw('sb.bill_uuid = b.uuid')
+                .where('sb.with_insurance', convertPayment(params.filter_payment));
+        });
+      }
+      return await KnexPagination.init(query, params);
+    } catch (error) {
+      throw error;
     }
-
-    if (params.filter_type) {
-      serviceBill.whereIn("sb.type", filterChip[params.filter_type]);
-    }
-
-    if (params.filter_payment) {
-      serviceBill.where("sb.with_insurance", convertPayment(params.filter_payment));
-    }
-
-    return await query;
   }
 
   static async GetTotalBill(uuid) {
@@ -523,7 +547,7 @@ export default class PaymentRepository {
       }
 
       let updatedPaymentStatus = false;
-      if (totalPayment + data.amount >= bill.grand_total) {
+      if ((totalPayment + data.amount) >= (bill.grand_total - epsilon)) {
         updatedPaymentStatus = true;
       }
       await db.transaction(async (trx) => {

@@ -148,20 +148,6 @@ export default class CashierRepository {
     static async CloseDayCashier() {
         try {
             const {faskesUuid} = Ctx.get(CTX_AUTHOR);
-            
-            // Validasi rekapitulasi harian sudah ada atau tidak
-            const startOfDay = moment().startOf('day').unix();
-            const endOfDay = moment().endOf('day').unix();
-
-            const checkToday = await db('cashier_report')
-                .where('faskes_uuid', faskesUuid)
-                .where('type', 'DAYS')
-                .whereBetween('created_at', [startOfDay, endOfDay])
-                .first();
-
-            if (checkToday) {
-                throw new CantProcessDataException('Daily closing has already been done for today');
-            }
 
             const trx = await db.transaction();
             const timeClose = moment().unix();
@@ -203,17 +189,18 @@ export default class CashierRepository {
                     .update({
                         cashier_report_uuid: createCashierDay[0].uuid,
                     });
-
+                
+                // Memanbahkan kondisi untuk bug NaN
                 // sum total
-                result.total = getDaysShift.reduce((acc, curr) => acc + curr.ballance, 0);
+                result.total = getDaysShift.reduce((acc, curr) => acc + (curr.ballance || 0), 0);
                 // sum ppn
-                result.ppn = getDaysShift.reduce((acc, curr) => acc + curr.ppn, 0);
+                result.ppn = getDaysShift.reduce((acc, curr) => acc + (curr.ppn || 0), 0);
                 // sum cash
-                result.cash = getDaysShift.reduce((acc, curr) => acc + curr.cash, 0);
+                result.cash = getDaysShift.reduce((acc, curr) => acc + (curr.cash || 0), 0);
                 // sum debit
-                result.debit = getDaysShift.reduce((acc, curr) => acc + curr.debit, 0);
+                result.debit = getDaysShift.reduce((acc, curr) => acc + (curr.debit || 0), 0);
                 // sum insurance
-                result.insurance = getDaysShift.reduce((acc, curr) => acc + curr.insurance, 0);
+                result.insurance = getDaysShift.reduce((acc, curr) => acc + (curr.insurance || 0), 0);
                 await trx.commit();
 
                 return {
