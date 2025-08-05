@@ -73,13 +73,24 @@ export default class ReportRepository {
     
             if (params.search && params.search.trim() !== '') {
                 const searchTerm = params.search.trim();
-                const likeTerm = `%${searchTerm}%`;
-                query = query.andWhere(function() {
-                    this.where('p.no_rm', 'ilike', likeTerm)
-                        .orWhere('b.invoice_code', 'ilike', likeTerm)
-                        .orWhere('b.bill_code', 'ilike', likeTerm)
-                        .orWhere('p.name', 'ilike', likeTerm);
-                });
+                
+                const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(searchTerm);
+    
+                if (isUUID) {
+                    query.andWhere(function() {
+                        this.where('ph.uuid', searchTerm)
+                            .orWhere('b.uuid', searchTerm)
+                            .orWhere('p.uuid', searchTerm);
+                    });
+                } else {
+                    const likeTerm = `%${searchTerm}%`;
+                    query.andWhere(function() {
+                        this.where('p.no_rm', 'ilike', likeTerm)
+                            .orWhere('b.invoice_code', 'ilike', likeTerm)
+                            .orWhere('b.bill_code', 'ilike', likeTerm)
+                            .orWhere('p.name', 'ilike', likeTerm);
+                    });
+                }
             }
             return await KnexPagination.init(query, params);
         } catch (error) {
