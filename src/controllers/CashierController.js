@@ -6,7 +6,7 @@ export default class CashierController{
         try{
             const data = req.body;
             const result = await CashierService.OpenCashier(data);
-            return res.json(successResponse("Success"));
+            return res.json(successResponse("Shift berhasil dibuka", result));
         }catch (error){
             next(error);
         }
@@ -15,7 +15,7 @@ export default class CashierController{
     static async CheckCashier(req, res, next){
         try{
             const result = await CashierService.CheckCashier();
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Data berhasil ditampilkan", result));
         }catch (error) {
             next(error);
         }
@@ -25,7 +25,7 @@ export default class CashierController{
         try{
             const data = req.body;
             const result = await CashierService.CloseShiftCashier(data);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Shift berhasil ditutup", result));
         }catch (error) {
             next(error);
         }
@@ -34,7 +34,7 @@ export default class CashierController{
     static async CloseDayCashier(req, res, next){
         try{
             const result = await CashierService.CloseDayCashier();
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Kasir harian berhasil ditutup", result));
         }catch (error) {
             next(error);
         }

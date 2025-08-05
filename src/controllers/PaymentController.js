@@ -6,7 +6,7 @@ export default class PaymentController {
         try {
             const search = req.query.search;
             const result = await PaymentService.findPayment(search);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Data berhasil ditampilkan", result));
         } catch (error) {
             next(error);
         }
@@ -17,7 +17,7 @@ export default class PaymentController {
         try {
             const uuid = req.params.uuid;
             const result = await PaymentService.getDetailBill(uuid);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Data berhasil ditampilkan", result));
         } catch (error) {
             next(error);
         }
@@ -27,7 +27,7 @@ export default class PaymentController {
         try {
             const uuid = req.params.uuid;
             const result = await PaymentService.getBillItems(uuid);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Data berhasil ditampilkan", result));
         } catch (error) {
             next(error);
         }
@@ -38,7 +38,7 @@ export default class PaymentController {
             const uuid = req.params.uuid;
             const data = req.body;
             const result = await PaymentService.applyVoucher(uuid, data);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Voucher berhasil digunakan", result));
         } catch (error) {
             next(error);
         }
@@ -49,7 +49,7 @@ export default class PaymentController {
             const uuid = req.params.uuid;
             const data = req.body;
             const result = await PaymentService.applyDiscount(uuid, data);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Discount berhasil digunakan", result));
         } catch (error) {
             next(error);
         }
@@ -59,7 +59,7 @@ export default class PaymentController {
         try {
             const uuid = req.params.uuid;
             const result = await PaymentService.closeBill(uuid);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Bill berhasil ditutup", result));
         } catch (error) {
             next(error);
         }
@@ -70,7 +70,7 @@ export default class PaymentController {
             const uuid = req.params.uuid;
             const data = req.body;
             const result = await PaymentService.paymentBill(uuid, data);
-            return res.json(successResponse("Success Pay Bill", result));
+            return res.json(successResponse("Pembayaran berhasil", result));
         } catch (error) {
             next(error);
         }
@@ -80,7 +80,7 @@ export default class PaymentController {
         try {
             const uuid = req.params.uuid;
             const result = await PaymentService.getPaymentHistory(uuid);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Data berhasil ditampilkan", result));
         } catch (error) {
             next(error);
         }
@@ -90,7 +90,7 @@ export default class PaymentController {
         try {
             const uuid = req.params.uuid;
             const result = await PaymentService.getDetailPayment(uuid);
-            return res.json(successResponse("Success", result));
+            return res.json(successResponse("Data berhasil ditampilkan", result));
         } catch (error) {
             next(error);
         }

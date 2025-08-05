@@ -6,7 +6,7 @@ export default class ReportController{
         try{
             const params = req.query;
             const result = await ReportService.getReportCashier(params);
-            return res.json(successResponse("Success", result.data, result.pagination));
+            return res.json(successResponse("Data berhasil ditampilkan", result.data, result.pagination));
         }catch (error){
             next(error);
         }
@@ -16,8 +16,18 @@ export default class ReportController{
         try{
             const params = req.query;
             const result = await ReportService.getReportPayment(params);
-            return res.json(successResponse("Success", result.data, result.pagination));
+            return res.json(successResponse("Data berhasil ditampilkan", result.data, result.pagination));
         }catch (error){
+            next(error);
+        }
+    }
+
+    static async getReportRevenue(req, res, next) {
+        try {
+            const params = req.query;
+            const result = await ReportService.getReportRevenue(params);
+            return res.json(successResponse("Data berhasil ditampilkan", result));
+        } catch (error) {
             next(error);
         }
     }

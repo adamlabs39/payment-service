@@ -1,6 +1,5 @@
 import express from "express";
 import PaymentController from "../controllers/PaymentController.js";
-// import authorizationMiddleware from "../middlewares/authorization-middleware.js";
 import CashierController from "../controllers/CashierController.js";
 import ReportController from "../controllers/ReportController.js";
 import authorizationSdk from "@adameds/authorization-sdk";
@@ -26,5 +25,6 @@ r.post('/cashier/close/day',authorizationSdk([]),CashierController.CloseDayCashi
 // Report
 r.get('/report/cashier',authorizationSdk([]),ReportController.getReportCashier);
 r.get('/report/payment',authorizationSdk([]),ReportController.getReportPayment);
+r.get('/report/revenue', authorizationSdk([]), ReportController.getReportRevenue);
 
 export default r;

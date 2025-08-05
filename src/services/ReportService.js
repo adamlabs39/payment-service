@@ -15,4 +15,10 @@ export default class ReportService{
         const valid = ZodValidator.validate(ReportValidation.GET_PAYMENT_REPORT, params);
         return await ReportRepository.GetReportPayment(valid);
     }
+
+    static async getReportRevenue(params) {
+        if (!params.start_date || !params.end_date) throw new BadRequestException("start_date and end_date are required");
+        const validatedParams = ZodValidator.validate(ReportValidation.GET_REVENUE_REPORT, params);
+        return await ReportRepository.GetTotalRevenue(validatedParams);
+    }
 }

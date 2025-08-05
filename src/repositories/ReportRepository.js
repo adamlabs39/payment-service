@@ -76,24 +76,42 @@ export default class ReportRepository {
             query.where('cr.shift_type', params.shift_type)
         }
 
-        if (params.search) {
-            query.where('p.no_rm', 'ilike', `%${params.search}%`)
-                .orWhere('b.invoice_code', 'ilike', `%${params.search}%`)
-                .orWhere('b.bill_code', 'ilike', `%${params.search}%`)
-                .orWhere('p.name', 'ilike', `%${params.search}%`)
+        if (params.name && params.name.trim() !== '') {
+            const searchTerm = `%${params.name}%`;
+            query.where(function() {
+                this.where('p.no_rm', 'ilike', searchTerm)
+                    .orWhere('b.invoice_code', 'ilike', searchTerm)
+                    .orWhere('b.bill_code', 'ilike', searchTerm)
+                    .orWhere('p.name', 'ilike', searchTerm);
+            });
         }
 
         return await KnexPagination.init(query, params);
     }
 
 
-    static async GetTotalRevenue(start_date, end_date){
+    static async GetTotalRevenue(params){
         try{
-            const result = await db('cashier_report as cr')
-                .where('ph.type', 'DAYS')
-                .where('cr.created_at', '>=', start_date)
-                .where('cr.created_at', '<=', end_date)
+            const { faskesUuid } = Context.get(CTX_AUTHOR);
+            const { start_date, end_date } = params;
 
+            const result = await db('payment_history as ph')
+                .where('ph.faskes_uuid', faskesUuid)
+                .whereBetween('ph.created_at', [start_date, end_date])
+                .select(
+                    db.raw('SUM(ph.amount) as total_pendapatan'),
+                    db.raw(`SUM(CASE WHEN ph.payment_method = 'CASH' THEN ph.amount ELSE 0 END) as total_tunai`),
+                    db.raw(`SUM(CASE WHEN ph.payment_method IN ('DEBIT', 'TRANSFER', 'CREDIT') THEN ph.amount ELSE 0 END) as total_debit`),
+                    db.raw(`SUM(CASE WHEN ph.payment_type = 'INSURANCE' THEN ph.amount ELSE 0 END) as total_kredit`)
+                )
+                .first();
+
+            return {
+                total_pendapatan: parseFloat(result.total_pendapatan) || 0,
+                total_tunai: parseFloat(result.total_tunai) || 0,
+                total_debit: parseFloat(result.total_debit) || 0,
+                total_kredit: parseFloat(result.total_kredit) || 0,
+            };
         }catch (error) {
             throw error;
         }

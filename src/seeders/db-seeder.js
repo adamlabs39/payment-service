@@ -9,9 +9,14 @@ const DBSeeder = async () => {
 
     try {
         console.log("Menghapus data seeder lama...");
-        // Identifier unik untuk data yang dibuat oleh seeder ini
-        const seederBillNames = ['Pasien Seeder 1', 'Pasien Seeder 2', 'Pasien Seeder 3'];
-        const seederPatientRms = ['SEEDER-001', 'SEEDER-002', 'SEEDER-003'];
+        
+        const LOOP_COUNT = 11;
+        const seederBillNames = [];
+        const seederPatientRms = [];
+        for (let i = 1; i <= LOOP_COUNT; i++) {
+            seederBillNames.push(`Pasien Seeder ${i}`);
+            seederPatientRms.push(`SEEDER-00${i}`);
+        }
 
         // Dapatkan UUID dari data seeder yang akan dihapus
         const billsToDeleteQuery = await sequelizeInstance.query(
@@ -62,7 +67,7 @@ const DBSeeder = async () => {
         await queryInterface.bulkInsert('voucher', voucherData, { transaction });
 
         // --- 2. Buat 3 Data Pasien & Tagihan Lengkap ---
-        for (let i = 1; i <= 3; i++) {
+        for (let i = 1; i <= LOOP_COUNT; i++) {
             const patientUuid = uuidv7();
             const billUuid = uuidv7();
             

@@ -26,4 +26,9 @@ export default class ReportValidation {
             z.enum(['SHIFT', 'DAYS']).optional()
         ),
     });
+
+    static GET_REVENUE_REPORT = z.object({
+        start_date: z.string().regex(/^\d+$/, "start_date must be a Unix timestamp string").transform(Number),
+        end_date: z.string().regex(/^\d+$/, "end_date must be a Unix timestamp string").transform(Number),
+    });
 }
