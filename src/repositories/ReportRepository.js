@@ -49,46 +49,43 @@ export default class ReportRepository {
     }
 
     static async GetReportPayment(params) {
-        const availShiftType = ['1', '2', '3']; // 1 = Pagi, 2 = Siang, 3 = Malam
-        const query = db('payment_history as ph')
-            .leftJoin('bills as b', db.raw('ph.bill_uuid'), 'b.uuid')
-            .leftJoin('patients as p', db.raw('b.patient_uuid'), 'p.uuid')
-            .leftJoin('cashier_report as cr', db.raw('ph.kasir_uuid'), 'cr.uuid')
+        try {
+            const { faskesUuid } = Context.get(CTX_AUTHOR);
+            const availShiftType = ['1', '2', '3'];
+    
+            let query = db('payment_history as ph')
+            .leftJoin('bills as b', 'ph.bill_uuid', 'b.uuid')
+            .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
+            .leftJoin('cashier_report as cr', 'ph.kasir_uuid', 'cr.uuid')
             .select(
-                'ph.uuid',
-                'p.no_rm',
-                'b.invoice_code',
-                'b.bill_code',
-                'p.name as patient_name',
-                'ph.created_at as payment_date',
-                'ph.payment_type',
-                'ph.amount',
-                'cr.nama_kasir as cashier_name',
-                'ph.information',
-                'ph.note',
+                'ph.uuid', 'p.no_rm', 'b.invoice_code', 'b.bill_code', 'p.name as patient_name',
+                'ph.created_at as payment_date', 'ph.payment_type', 'ph.amount',
+                'cr.nama_kasir as cashier_name', 'ph.information', 'ph.note'
             )
+            .where('ph.faskes_uuid', faskesUuid)
             .where('ph.created_at', '>=', params.start_date)
-            .where('ph.created_at', '<=', params.end_date)
-            .where('ph.faskes_uuid', Context.get(CTX_AUTHOR).faskesUuid)
-
-        if (params.shift_type) {
-            if (!availShiftType.includes(params.shift_type)) throw new BadRequestException('Invalid shift type');
-            query.where('cr.shift_type', params.shift_type)
+            .where('ph.created_at', '<=', params.end_date);
+    
+            if (params.shift_type) {
+                if (!availShiftType.includes(params.shift_type)) throw new BadRequestException('Invalid shift type');
+                query.where('cr.shift_type', params.shift_type);
+            }
+    
+            if (params.search && params.search.trim() !== '') {
+                const searchTerm = params.search.trim();
+                const likeTerm = `%${searchTerm}%`;
+                query = query.andWhere(function() {
+                    this.where('p.no_rm', 'ilike', likeTerm)
+                        .orWhere('b.invoice_code', 'ilike', likeTerm)
+                        .orWhere('b.bill_code', 'ilike', likeTerm)
+                        .orWhere('p.name', 'ilike', likeTerm);
+                });
+            }
+            return await KnexPagination.init(query, params);
+        } catch (error) {
+            throw error;
         }
-
-        if (params.name && params.name.trim() !== '') {
-            const searchTerm = `%${params.name}%`;
-            query.where(function() {
-                this.where('p.no_rm', 'ilike', searchTerm)
-                    .orWhere('b.invoice_code', 'ilike', searchTerm)
-                    .orWhere('b.bill_code', 'ilike', searchTerm)
-                    .orWhere('p.name', 'ilike', searchTerm);
-            });
-        }
-
-        return await KnexPagination.init(query, params);
     }
-
 
     static async GetTotalRevenue(params){
         try{
