@@ -66,8 +66,7 @@ export default class ReportRepository {
             .where('ph.created_at', '>=', params.start_date)
             .where('ph.created_at', '<=', params.end_date);
     
-            if (params.shift_type) {
-                if (!availShiftType.includes(params.shift_type)) throw new BadRequestException('Invalid shift type');
+            if (params.shift_type && availShiftType.includes(params.shift_type)) {
                 query.where('cr.shift_type', params.shift_type);
             }
     
