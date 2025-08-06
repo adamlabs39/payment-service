@@ -1,4 +1,5 @@
 import { paginationHelper } from "./utility.js";
+import db from "../configs/knex-config.js";
 
 export class KnexPagination {
     static async init(query, args) {
