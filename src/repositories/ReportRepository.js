@@ -15,6 +15,7 @@ export default class ReportRepository {
                 .select(
                     'cr.uuid',
                     'cr.type',
+                    'cr.shift_type',
                     'cr.shift_time_open',
                     'cr.shift_time_closed',
                     'cr.days_time_closed',
@@ -34,6 +35,7 @@ export default class ReportRepository {
                     'cr.id',
                     'cr.uuid',
                     'cr.type',
+                    'cr.shift_type',
                     'cr.shift_time_open',
                     'cr.shift_time_closed',
                     'cr.days_time_closed',
