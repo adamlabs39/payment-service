@@ -531,7 +531,7 @@ export default class PaymentRepository {
   static async PaymentBill(uuid, data) {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
-      const getCashier = await CashierRepository.CheckCashierShift();
+      const getCashier = await CashierRepository._getActiveShift(faskesUuid);
       if (!getCashier) throw new BadRequestException("Cashier is not opened");
 
       const bill = await this.GetTotalBill(uuid);

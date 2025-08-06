@@ -28,4 +28,16 @@ export default class ReportService{
         const data = await ReportRepository.GetTotalRevenue(validatedParams);
         await ExcelHelper.createRevenueReport(data, res);
     }
+
+    static async exportReportPayment(params, res) {
+        const validatedParams = ZodValidator.validate(ReportValidation.GET_PAYMENT_REPORT, params);
+        const reportData = await ReportRepository.GetReportPayment(validatedParams, true);
+        await ExcelHelper.createPaymentReport(reportData, res);
+    }
+
+    static async exportReportCashier(params, res) {
+        const validatedParams = ZodValidator.validate(ReportValidation.GET_CLOSING_REPORT, params);
+        const reportData = await ReportRepository.GetReportClosing(validatedParams, true);
+        await ExcelHelper.createClosingCashierReport(reportData, res);
+    }
 }

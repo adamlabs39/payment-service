@@ -5,7 +5,7 @@ import {Context} from "../middlewares/context.js";
 import BadRequestException from "../exceptions/bad-request-exception.js";
 
 export default class ReportRepository {
-    static async GetReportClosing(params) {
+    static async GetReportClosing(params, isExport = false) {
         try {
             const { faskesUuid } = Context.get(CTX_AUTHOR);
             const availType = ['SHIFT', 'DAYS'];
@@ -42,10 +42,18 @@ export default class ReportRepository {
                     'cr.nama_kasir'
                 )
                 .orderBy('cr.id', 'desc');
-    
+                
+            if (params.start_date && params.end_date) {
+                query.whereBetween('cr.created_at', [params.start_date, params.end_date]);
+            }
+
             if (params.type) {
                 if (!availType.includes(params.type)) throw new BadRequestException('Invalid type');
                 query.where('cr.type', params.type);
+            }
+
+            if (isExport) {
+                return await query;
             }
     
             return await KnexPagination.init(query, params);
@@ -55,7 +63,7 @@ export default class ReportRepository {
     }
     
 
-    static async GetReportPayment(params) {
+    static async GetReportPayment(params, isExport = false) {
         try {
             const { faskesUuid } = Context.get(CTX_AUTHOR);
             const availShiftType = ['1', '2', '3'];
@@ -70,8 +78,11 @@ export default class ReportRepository {
                 'cr.nama_kasir as cashier_name', 'ph.information', 'ph.note'
             )
             .where('ph.faskes_uuid', faskesUuid)
-            .where('ph.created_at', '>=', params.start_date)
-            .where('ph.created_at', '<=', params.end_date);
+
+            if (params.start_date && params.end_date) {
+                query.where('ph.created_at', '>=', params.start_date)
+                     .where('ph.created_at', '<=', params.end_date);
+            }
     
             if (params.shift_type && availShiftType.includes(params.shift_type)) {
                 query.where('cr.shift_type', params.shift_type);
@@ -97,6 +108,9 @@ export default class ReportRepository {
                             .orWhere('p.name', 'ilike', likeTerm);
                     });
                 }
+            }
+            if (isExport) {
+                return await query;
             }
             return await KnexPagination.init(query, params);
         } catch (error) {

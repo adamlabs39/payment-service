@@ -52,8 +52,28 @@ const calculateDiscount = ({
     return Math.max(0, amount - discountAmount);
 };
 
+function epochToDate(epoch, format = 'date') {
+    if (!epoch || isNaN(epoch)) {
+        return '-';
+    }
+
+    const date = moment.unix(epoch);
+
+    switch (format) {
+        case 'date':
+            return date.format('DD-MM-YYYY');
+        case 'time':
+            return date.format('HH:mm');
+        case 'datetime':
+            return date.format('DD-MM-YYYY HH:mm:ss');
+        default:
+            return date.format('DD-MM-YYYY');
+    }
+}
+
 export {
     paginationHelper,
     calculateVoucher,
-    calculateDiscount
+    calculateDiscount,
+    epochToDate
 }

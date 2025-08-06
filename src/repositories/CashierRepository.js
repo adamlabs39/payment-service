@@ -123,19 +123,27 @@ export default class CashierRepository {
         }
     }
 
+    static async _getActiveShift(faskesUuid) {
+        return await db('cashier_report as cr')
+            .where('faskes_uuid', faskesUuid)
+            .whereNull('shift_time_closed')
+            .where('type', 'SHIFT')
+            .orderBy('id', 'desc')
+            .select(
+                'cr.uuid',
+                'cr.nama_kasir',
+                'cr.shift_type'
+            )
+            .first();
+    }
+
     static async CheckCashierShift() {
         try {
             const author = Ctx.get(CTX_AUTHOR);
             if (!author) return null;
             const { faskesUuid, iat } = author;
 
-            const activeShift = await db('cashier_report as cr')
-                .where('faskes_uuid', faskesUuid)
-                .whereNull('shift_time_closed')
-                .where('type', 'SHIFT')
-                .orderBy('id', 'desc')
-                .select('nama_kasir', 'shift_type')
-                .first();
+            const activeShift = await this._getActiveShift(faskesUuid);
 
             if (!activeShift) return { is_open: false };
             
