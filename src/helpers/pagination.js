@@ -6,8 +6,8 @@ export class KnexPagination {
         const limit = parseInt(args.limit) || 10;
         const offset = (page - 1) * limit;
 
-        const countQuery = query.clone().clearSelect().count('* as count').first();
-        const total = (await countQuery).count;
+        const countResult = await db.count('* as count').from(query.clone().as('subquery')).first();
+        const total = countResult.count;
 
         const data = await query
             .limit(limit)
