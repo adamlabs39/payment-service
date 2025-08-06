@@ -547,8 +547,12 @@ export default class PaymentRepository {
       }
 
       let updatedPaymentStatus = false;
-      if ((totalPayment + data.amount) >= (bill.grand_total - epsilon)) {
+      let changeAmount = 0;
+
+      const finalTotalPayment = totalPayment + data.amount;
+      if (finalTotalPayment >= (bill.grand_total - epsilon)) {
         updatedPaymentStatus = true;
+        changeAmount = finalTotalPayment - bill.grand_total;
       }
       await db.transaction(async (trx) => {
         await trx("payment_history").insert({
@@ -575,7 +579,10 @@ export default class PaymentRepository {
             });
         }
       });
-      return true;
+      return {
+        success: true,
+        change: changeAmount > 0 ? changeAmount : 0 
+    };
     } catch (error) {
       throw error;
     }
