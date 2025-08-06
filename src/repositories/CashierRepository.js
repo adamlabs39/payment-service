@@ -125,11 +125,10 @@ export default class CashierRepository {
 
     static async CheckCashierShift() {
         try {
-            const {faskesUuid} = Ctx.get(CTX_AUTHOR);
-            return await db('cashier_report as cr')
+            const { faskesUuid, username } = Ctx.get(CTX_AUTHOR);
+            const activeShift = await db('cashier_report as cr')
                 .where('faskes_uuid', faskesUuid)
                 .whereNull('shift_time_closed')
-                .whereNull('days_time_closed')
                 .where('type', 'SHIFT')
                 .orderBy('id', 'desc')
                 .select(
@@ -140,6 +139,20 @@ export default class CashierRepository {
                     'cr.beginning_balance',
                 )
                 .first();
+            if (!activeShift) return null;
+            
+            const shiftMap = {
+                '1': 'Pagi',
+                '2': 'Siang',
+                '3': 'Malam'
+            };
+
+            return {
+                nama_akun: activeShift.nama_kasir,
+                terakhir_login: username,
+                shift: shiftMap[activeShift.shift_type] || 'N/A',
+                tanggal_jam_closing: moment().unix()
+            };
         } catch (error) {
             throw error;
         }

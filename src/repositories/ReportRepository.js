@@ -7,46 +7,51 @@ import BadRequestException from "../exceptions/bad-request-exception.js";
 export default class ReportRepository {
     static async GetReportClosing(params) {
         try {
+            const { faskesUuid } = Context.get(CTX_AUTHOR);
             const availType = ['SHIFT', 'DAYS'];
+    
             const query = db('cashier_report as cr')
+                .leftJoin('cashier_report as cr_child', 'cr_child.cashier_report_uuid', 'cr.uuid')
                 .select(
                     'cr.uuid',
                     'cr.type',
-                    'cr.shift_type',
                     'cr.shift_time_open',
                     'cr.shift_time_closed',
                     'cr.days_time_closed',
                     'cr.nama_kasir as cashier_name',
-                    db.raw(
-                        `CASE 
-                        WHEN cr.type = 'DAYS' THEN 
-                            (SELECT STRING_AGG(
-                                CASE
-                                    WHEN cr2.shift_type = '1' THEN 'Pagi'
-                                    WHEN cr2.shift_type = '2' THEN 'Siang'
-                                    WHEN cr2.shift_type = '3' THEN 'Malam'
-                                    ELSE 'N/A'
-                                END, ', ')
-                             FROM cashier_report AS cr2 
-                             WHERE cr2.cashier_report_uuid = cr.uuid)
-                        ELSE NULL 
-                    END as shift_list`
-                    )
-                ).where('cr.faskes_uuid', Context.get(CTX_AUTHOR).faskesUuid)
-                .where('cr.created_at', '>=', params.start_date)
-                .where('cr.created_at', '<=', params.end_date)
-
+                    db.raw(`STRING_AGG(
+                        CASE
+                            WHEN cr_child.shift_type = '1' THEN 'Pagi'
+                            WHEN cr_child.shift_type = '2' THEN 'Siang'
+                            WHEN cr_child.shift_type = '3' THEN 'Malam'
+                            ELSE NULL
+                        END, ', ' ORDER BY cr_child.shift_type) as shift_list`),
+                    db.raw(`STRING_AGG(DISTINCT cr_child.nama_kasir, ', ') as petugas_list`)
+                )
+                .where('cr.faskes_uuid', faskesUuid)
+                .whereBetween('cr.created_at', [params.start_date, params.end_date])
+                .groupBy(
+                    'cr.id',
+                    'cr.uuid',
+                    'cr.type',
+                    'cr.shift_time_open',
+                    'cr.shift_time_closed',
+                    'cr.days_time_closed',
+                    'cr.nama_kasir'
+                )
+                .orderBy('cr.id', 'desc');
+    
             if (params.type) {
                 if (!availType.includes(params.type)) throw new BadRequestException('Invalid type');
-                query.where('cr.type', params.type)
+                query.where('cr.type', params.type);
             }
-
-
+    
             return await KnexPagination.init(query, params);
         } catch (error) {
             throw error;
         }
     }
+    
 
     static async GetReportPayment(params) {
         try {
