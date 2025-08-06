@@ -546,21 +546,25 @@ export default class PaymentRepository {
           throw new BadRequestException("Bill already paid");
       }
 
-      let updatedPaymentStatus = false;
+      let amountToRecord = parseFloat(data.amount) || 0;
       let changeAmount = 0;
+      let updatedPaymentStatus = false;
 
-      const finalTotalPayment = totalPayment + data.amount;
-      if (finalTotalPayment >= (bill.grand_total - epsilon)) {
+      const remainingDebt = bill.grand_total - totalPayment;
+
+      if (amountToRecord >= (remainingDebt - epsilon)) {
         updatedPaymentStatus = true;
-        changeAmount = finalTotalPayment - bill.grand_total;
+        changeAmount = amountToRecord - remainingDebt;
+        amountToRecord = remainingDebt;
       }
+
       await db.transaction(async (trx) => {
         await trx("payment_history").insert({
           uuid: uuidv7(),
           faskes_uuid: faskesUuid,
           bill_uuid: uuid,
           kasir_uuid: getCashier.uuid,
-          amount: data.amount,
+          amount: amountToRecord,
           payment_type: data.payment_type,
           payment_method: data.payment_method,
           information: data.information,

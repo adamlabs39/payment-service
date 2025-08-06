@@ -31,4 +31,13 @@ export default class ReportController{
             next(error);
         }
     }
+
+    static async exportReportRevenue(req, res, next) {
+        try {
+            const params = req.query;
+            await ReportService.exportReportRevenue(params, res);
+        } catch (error) {
+            next(error);
+        }
+    }
 }

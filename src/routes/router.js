@@ -27,5 +27,6 @@ r.post('/cashier/close/day',authorizationSdk([]),CashierController.CloseDayCashi
 r.get('/report/cashier',authorizationSdk([]),ReportController.getReportCashier);
 r.get('/report/payment',authorizationSdk([]),ReportController.getReportPayment);
 r.get('/report/revenue', authorizationSdk([]), ReportController.getReportRevenue);
+r.get('/report/revenue/export', authorizationSdk([]), ReportController.exportReportRevenue);
 
 export default r;
