@@ -125,32 +125,44 @@ export default class CashierRepository {
 
     static async CheckCashierShift() {
         try {
-            const { faskesUuid, username } = Ctx.get(CTX_AUTHOR);
+            const author = Ctx.get(CTX_AUTHOR);
+            if (!author) return null;
+            const { faskesUuid, iat } = author;
+
             const activeShift = await db('cashier_report as cr')
                 .where('faskes_uuid', faskesUuid)
                 .whereNull('shift_time_closed')
                 .where('type', 'SHIFT')
                 .orderBy('id', 'desc')
-                .select(
-                    'cr.uuid',
-                    'cr.nama_kasir',
-                    'cr.shift_time_open',
-                    'cr.shift_type',
-                    'cr.beginning_balance',
-                )
+                .select('nama_kasir', 'shift_type')
                 .first();
-            if (!activeShift) return null;
+
+            if (!activeShift) return { is_open: false };
             
-            const shiftMap = {
-                '1': 'Pagi',
-                '2': 'Siang',
-                '3': 'Malam'
-            };
+            const shiftMap = { '1': 'Pagi', '2': 'Siang', '3': 'Malam' };
 
             return {
+                is_open: true,
                 nama_akun: activeShift.nama_kasir,
-                terakhir_login: username,
+                terakhir_login: iat,
                 shift: shiftMap[activeShift.shift_type] || 'N/A',
+                tanggal_jam_closing: moment().unix()
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async GetCloseDayConfirmationData() {
+        try {
+            const author = Ctx.get(CTX_AUTHOR);
+            if (!author) return null;
+    
+            const { username, iat } = author;
+    
+            return {
+                nama_akun: username,
+                terakhir_login: iat,
                 tanggal_jam_closing: moment().unix()
             };
         } catch (error) {
@@ -203,7 +215,6 @@ export default class CashierRepository {
                         cashier_report_uuid: createCashierDay[0].uuid,
                     });
                 
-                // Memanbahkan kondisi untuk bug NaN
                 // sum total
                 result.total = getDaysShift.reduce((acc, curr) => acc + (curr.ballance || 0), 0);
                 // sum ppn

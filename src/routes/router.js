@@ -17,8 +17,9 @@ r.post('/payment/:uuid/payment',authorizationSdk([]),PaymentController.paymentBi
 r.get('/payment/:uuid/history',authorizationSdk([]),PaymentController.getPaymentHistory);
 r.get('/payment/:uuid/detail',authorizationSdk([]),PaymentController.getDetailPayment);
 // Cashier
-r.post('/cashier/open',authorizationSdk([]),CashierController.OpenCashier);
 r.get('/cashier/check',authorizationSdk([]),CashierController.CheckCashier);
+r.get('/cashier/close-day/check', authorizationSdk([]), CashierController.getCloseDayConfirmation);
+r.post('/cashier/open',authorizationSdk([]),CashierController.OpenCashier);
 r.post('/cashier/close',authorizationSdk([]),CashierController.CloseShiftCashier);
 r.post('/cashier/close/day',authorizationSdk([]),CashierController.CloseDayCashier);
 

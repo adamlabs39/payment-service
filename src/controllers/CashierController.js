@@ -31,6 +31,15 @@ export default class CashierController{
         }
     }
 
+    static async getCloseDayConfirmation(req, res, next) {
+        try {
+            const result = await CashierService.getCloseDayConfirmation();
+            return res.json(successResponse("Data berhasil ditampilkan", result));
+        } catch (error) {
+            next(error);
+        }
+    }
+
     static async CloseDayCashier(req, res, next){
         try{
             const result = await CashierService.CloseDayCashier();

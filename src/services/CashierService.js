@@ -34,6 +34,14 @@ export default class CashierService{
         }
     }
 
+    static async getCloseDayConfirmation() {
+        try {
+            return await CashierRepository.GetCloseDayConfirmationData();
+        } catch (error) {
+            throw error;
+        }
+    }
+
     static async CloseDayCashier(){
         try{
             return CashierRepository.CloseDayCashier();
