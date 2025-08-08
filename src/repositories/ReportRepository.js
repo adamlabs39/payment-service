@@ -47,7 +47,7 @@ export default class ReportRepository {
                 query.whereBetween('cr.created_at', [params.start_date, params.end_date]);
             }
 
-            if (params.type) {
+            if (params.type && params.type !== 'ALL') {
                 if (!availType.includes(params.type)) throw new BadRequestException('Invalid type');
                 query.where('cr.type', params.type);
             }

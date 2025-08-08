@@ -8,23 +8,19 @@ export default class ReportValidation {
         limit: z.string().optional().default('10').transform(Number),
     });
 
-    
     static GET_PAYMENT_REPORT = this.#BASE_PARAMS.extend({
         search: z.preprocess(
             (val) => (val === "" ? undefined : val),
             z.string().optional()
         ),
         shift_type: z.preprocess(
-            (val) => (val === "" ? undefined : val),
+            (val) => (val === "" || val === null ? undefined : val),
             z.enum(['1', '2', '3']).optional()
         ),
     });
 
     static GET_CLOSING_REPORT = this.#BASE_PARAMS.extend({
-        type: z.preprocess(
-            (val) => (val === "" ? undefined : val),
-            z.enum(['SHIFT', 'DAYS']).optional()
-        ),
+        type: z.enum(['SHIFT', 'DAYS', 'ALL']).optional(),
     });
 
     static GET_REVENUE_REPORT = z.object({
