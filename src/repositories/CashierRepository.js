@@ -253,7 +253,7 @@ export default class CashierRepository {
             }
 
             await trx.rollback();
-            throw new CantProcessDataException('No shift cashier found');
+            throw new CantProcessDataException('Gagal menutup kasir');
         } catch (error) {
             throw error;
         }

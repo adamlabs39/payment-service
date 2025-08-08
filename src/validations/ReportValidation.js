@@ -13,10 +13,7 @@ export default class ReportValidation {
             (val) => (val === "" ? undefined : val),
             z.string().optional()
         ),
-        shift_type: z.preprocess(
-            (val) => (val === "" || val === null ? undefined : val),
-            z.enum(['1', '2', '3']).optional()
-        ),
+        shift_type: z.enum(['1', '2', '3', 'ALL']).optional(),
     });
 
     static GET_CLOSING_REPORT = this.#BASE_PARAMS.extend({
