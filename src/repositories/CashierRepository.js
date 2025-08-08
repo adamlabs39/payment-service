@@ -19,7 +19,7 @@ export default class CashierRepository {
                 .first();
 
             if (check) {
-                throw new CantProcessDataException('Shift cashier is still open');
+                throw new CantProcessDataException('Shift kasir masih terbuka');
             }
 
             return db('cashier_report')
@@ -52,7 +52,7 @@ export default class CashierRepository {
                 .first();
 
                 if (!check) {
-                    throw new CantProcessDataException('Shift cashier is already closed');
+                    throw new CantProcessDataException('Shift kasir belum dibuka');
                 }
 
             const timeClose = moment().unix();
@@ -181,6 +181,16 @@ export default class CashierRepository {
     static async CloseDayCashier() {
         try {
             const {faskesUuid} = Ctx.get(CTX_AUTHOR);
+
+            const checkOpenShift = await db('cashier_report')
+                .where('faskes_uuid', faskesUuid)
+                .where('type', 'SHIFT')
+                .whereNull('shift_time_closed')
+                .first();
+
+            if (checkOpenShift) {
+                throw new CantProcessDataException('Harus closing kasir terlebih dahulu');
+            }
 
             const trx = await db.transaction();
             const timeClose = moment().unix();

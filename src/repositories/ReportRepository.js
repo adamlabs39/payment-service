@@ -5,7 +5,7 @@ import {Context} from "../middlewares/context.js";
 import BadRequestException from "../exceptions/bad-request-exception.js";
 
 export default class ReportRepository {
-    static async GetReportClosing(params, isExport = false) {
+    static async GetReportClosing(params) {
         try {
             const { faskesUuid } = Context.get(CTX_AUTHOR);
             const availType = ['SHIFT', 'DAYS'];
@@ -51,10 +51,6 @@ export default class ReportRepository {
                 if (!availType.includes(params.type)) throw new BadRequestException('Invalid type');
                 query.where('cr.type', params.type);
             }
-
-            if (isExport) {
-                return await query;
-            }
     
             return await KnexPagination.init(query, params);
         } catch (error) {
@@ -63,7 +59,7 @@ export default class ReportRepository {
     }
     
 
-    static async GetReportPayment(params, isExport = false) {
+    static async GetReportPayment(params) {
         try {
             const { faskesUuid } = Context.get(CTX_AUTHOR);
             const availShiftType = ['1', '2', '3'];
@@ -108,9 +104,6 @@ export default class ReportRepository {
                             .orWhere('p.name', 'ilike', likeTerm);
                     });
                 }
-            }
-            if (isExport) {
-                return await query;
             }
             return await KnexPagination.init(query, params);
         } catch (error) {

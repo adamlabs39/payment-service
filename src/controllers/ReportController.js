@@ -31,31 +31,4 @@ export default class ReportController{
             next(error);
         }
     }
-
-    static async exportReportRevenue(req, res, next) {
-        try {
-            const params = req.query;
-            await ReportService.exportReportRevenue(params, res);
-        } catch (error) {
-            next(error);
-        }
-    }
-
-    static async exportReportPayment(req, res, next) {
-        try {
-            const params = req.query;
-            await ReportService.exportReportPayment(params, res);
-        } catch (error) {
-            next(error);
-        }
-    }
-
-    static async exportReportCashier(req, res, next) {
-        try {
-            const params = req.query;
-            await ReportService.exportReportCashier(params, res);
-        } catch (error) {
-            next(error);
-        }
-    }
 }

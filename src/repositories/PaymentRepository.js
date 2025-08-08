@@ -9,14 +9,13 @@ import { calculateDiscount, calculateVoucher } from "../helpers/utility.js";
 import CashierRepository from "./CashierRepository.js";
 import { uuidv7 } from "uuidv7";
 import moment from "moment";
-import { query } from "express";
 
 export default class PaymentRepository {
   static async FindBill(search) {
     try {
         const { faskesUuid } = Context.get(CTX_AUTHOR);
         
-        const bills = await db('bills as b')
+        const query = db('bills as b')
             .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
             .select(
                 'b.uuid',
@@ -30,12 +29,17 @@ export default class PaymentRepository {
             )
             .where('b.faskes_uuid', faskesUuid)
             .where('b.close_bill', false)
-            .andWhere(function () {
+
+        if (search && search.trim() !== '') {
+            query.andWhere(function () {
                 this.where('p.no_rm', 'ilike', `%${search}%`)
                     .orWhere('b.invoice_code', 'ilike', `%${search}%`)
                     .orWhere('b.bill_code', 'ilike', `%${search}%`)
                     .orWhere('b.name', 'ilike', `%${search}%`);
             });
+          }
+
+        const bills = await query;
 
         bills.forEach(bill => {
             const totalPaid = parseFloat(bill.total_paid) || 0;

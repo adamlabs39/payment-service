@@ -6,8 +6,15 @@ export default class PaymentValidation{
     });
 
     static PAYMENT_REQUEST = z.object({
-        amount: z.number().min(1),
-        payment_type: z.enum(['CASH', 'INSURANCE']),
+        amount: z.number({
+            required_error: "Jumlah bayar harus diisi",
+            invalid_type_error: "Jumlah bayar harus diisi",
+        }).min(1, { message: "Jumlah bayar minimal 1" }),
+        payment_type: z.enum(['CASH', 'INSURANCE'], {
+            required_error: "Cara bayar harus dipilih",
+            invalid_type_error: "Cara bayar harus dipilih"
+        }),
+
         payment_method: z.preprocess(
             (val) => (val === "" ? null : val),
             z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT']).nullable()
@@ -19,7 +26,7 @@ export default class PaymentValidation{
         if (data.payment_type === 'CASH' && !data.payment_method) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: 'Payment method is required when payment type is CASH.',
+                message: "Metode pembayaran harus dipilih",
                 path: ['payment_method']
             });
         }
@@ -27,7 +34,7 @@ export default class PaymentValidation{
         if (data.payment_type === 'INSURANCE' && data.payment_method) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: 'Payment method should be null when payment type is INSURANCE.',
+                message: "Metode pembayaran harus kosong untuk asuransi",
                 path: ['payment_method']
             });
         }
