@@ -11,52 +11,37 @@ import { uuidv7 } from "uuidv7";
 import moment from "moment";
 
 export default class PaymentRepository {
-  static async FindBill(search) {
-    try {
-        const { faskesUuid } = Context.get(CTX_AUTHOR);
-        
-        const query = db('bills as b')
-            .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
-            .select(
-                'b.uuid',
-                'b.name as patient_name',
-                'b.invoice_code',
-                'b.bill_code',
-                'b.grand_total',
-                'b.patient_uuid',
-                'b.close_bill',
-                db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`)
-            )
-            .where('b.faskes_uuid', faskesUuid)
-            .where('b.close_bill', false)
-
-        if (search && search.trim() !== '') {
-            query.andWhere(function () {
-                this.where('p.no_rm', 'ilike', `%${search}%`)
-                    .orWhere('b.invoice_code', 'ilike', `%${search}%`)
-                    .orWhere('b.bill_code', 'ilike', `%${search}%`)
-                    .orWhere('b.name', 'ilike', `%${search}%`);
-            });
-          }
-
-        const bills = await query;
-
-        bills.forEach(bill => {
-            const totalPaid = parseFloat(bill.total_paid) || 0;
-            const grandTotal = parseFloat(bill.grand_total) || 0;
-            bill.paid = totalPaid >= grandTotal;
-        });
-
-        return bills;
-
-    } catch (error) {
-        throw error;
+  static _calculateBillTotals(billData) {
+    const subTotal = parseFloat(billData.sub_total) || 0;
+    const ppn = parseFloat(billData.ppn) || 0;
+    const adminFee = parseFloat(billData.admin_fee) || 0;
+    const discount = parseFloat(billData.discount) || 0;
+    const voucherValue = billData.voucher_value;
+    const voucherType = billData.voucher_type;
+    
+    let total = subTotal + ppn + adminFee;
+    
+    if (voucherType && voucherValue) {
+      total = calculateVoucher({
+        amount: total,
+        type: voucherType,
+        value: voucherValue
+      });
     }
+    
+    if (discount > 0) {
+      total = calculateDiscount({
+        amount: total,
+        discount: discount
+      });
+    }
+    return total;
   }
-
+  
   static async _getBillDetails(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
 
+    // Check tagihan apakah sudah digabung dengan tagihan lain
     const checkIfFindIsMerge = await db("bills as b")
       .where("b.uuid", uuid)
       .select("b.merge_with")
@@ -66,27 +51,18 @@ export default class PaymentRepository {
     if (!checkIfFindIsMerge) throw new NotfoundException("Bill not found");
     if (checkIfFindIsMerge.merge_with) throw new CantProcessDataException("Bill Was Merged with another bill");
 
+    // Query untuk mengambil semua data tagihan termasuk yang digabung
     const bill = await db("bills as b")
       .leftJoin("patients as p", "b.patient_uuid", "p.uuid")
       .leftJoin("service_bill as sb", "sb.bill_uuid", "b.uuid")
       .leftJoin("bill_item as bi", "bi.service_bill_uuid", "sb.uuid")
       .select(
-        "b.uuid",
-        "b.name as patient_name",
-        "b.invoice_code",
-        "b.bill_code",
-        "b.patient_uuid",
-        "p.gender",
-        "b.merge_with",
-        "b.grand_total",
-        "b.sub_total",
-        "b.ppn",
-        "b.admin_fee",
-        "b.voucher_code",
-        "b.voucher_value",
-        "b.voucher_type",
-        "b.close_bill",
-        "b.discount",
+        "b.uuid", "b.name as patient_name", "b.invoice_code", "b.bill_code",
+        "b.patient_uuid", "p.gender", "b.merge_with",
+        "b.grand_total", 
+        "b.sub_total",   
+        "b.ppn", "b.admin_fee", "b.voucher_code", "b.voucher_value",
+        "b.voucher_type", "b.close_bill", "b.discount",
         db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
         db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
         db.raw(`SUM(CASE WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee ELSE 0 END) AS total_obat`),
@@ -94,85 +70,127 @@ export default class PaymentRepository {
         db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
         db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`)
       )
-      .where(function () {
+      .where(function() {
         this.where("b.uuid", uuid).orWhere("b.merge_with", uuid);
       })
       .andWhere("b.faskes_uuid", faskesUuid)
-      .whereNull("b.deleted_at")
-      .whereNull("sb.deleted_at")
-      .whereNull("bi.deleted_at")
+      .whereNull("b.deleted_at").whereNull("sb.deleted_at").whereNull("bi.deleted_at")
       .groupBy(
-        "b.uuid",
-        "p.gender",
-        "b.name",
-        "b.invoice_code",
-        "b.bill_code",
-        "b.patient_uuid",
-        "b.grand_total",
-        "b.sub_total",
-        "b.ppn",
-        "b.admin_fee",
-        "b.voucher_code",
-        "b.voucher_value",
-        "b.voucher_type",
-        "b.close_bill"
-      );
+        "b.uuid", "p.gender", "b.name", "b.invoice_code", "b.bill_code", "b.patient_uuid",
+        "b.grand_total", "b.sub_total", "b.ppn", "b.admin_fee", "b.voucher_code",
+        "b.voucher_value", "b.voucher_type", "b.close_bill"
+    );
+    
+    if (!bill.length) throw new NotfoundException("Bill not found");
 
-      if (!bill.length) throw new NotfoundException("Bill not found");
-
-      const finalBill = bill.reduce((acc, b, index) => {
-        acc.uuid = acc.uuid || b.uuid;
-        acc.patient_name = acc.patient_name || b.patient_name;
-        acc.invoice_code = acc.invoice_code || b.invoice_code;
-        acc.bill_code = acc.bill_code || b.bill_code;
-        acc.patient_uuid = acc.patient_uuid || b.patient_uuid;
-        acc.gender = acc.gender || b.gender;
-        acc.ppn = acc.ppn || b.ppn;
-        acc.voucher_code = acc.voucher_code || b.voucher_code;
-        acc.voucher_value = acc.voucher_value || b.voucher_value;
-        acc.voucher_type = acc.voucher_type || b.voucher_type;
-        acc.discount = acc.discount || b.discount;
-        acc.close_bill = acc.close_bill || b.close_bill;
-
-        if (index === 0) {
-          acc.admin_fee = b.admin_fee;
-        }
-
-        acc.sub_total = (acc.sub_total || 0) + b.sub_total;
-        acc.total_tindakan = (acc.total_tindakan || 0) + (b.total_tindakan || 0);
-        acc.total_obat = (acc.total_obat || 0) + (b.total_obat || 0);
-        acc.total_alkes = (acc.total_alkes || 0) + (b.total_alkes || 0);
-        acc.total_ruangan = (acc.total_ruangan || 0) + (b.total_ruangan || 0);
-        acc.total_penunjang = (acc.total_penunjang || 0) + (b.total_penunjang || 0);
-        acc.total_paid = (acc.total_paid || 0) + (parseFloat(b.total_paid) || 0);
-
-        return acc;
-      }, {});
-
-      if (finalBill.voucher_code && finalBill.voucher_value && finalBill.voucher_type) {
-        finalBill.sub_total = calculateVoucher({
-          amount: finalBill.sub_total,
-          type: finalBill.voucher_type,
-          value: finalBill.voucher_value,
-        });
-      }
-      if (finalBill.discount && finalBill.discount > 0) {
-        finalBill.sub_total = calculateDiscount({
-          amount: finalBill.sub_total,
-          discount: finalBill.discount,
-        });
+    const finalBill = bill.reduce((acc, b) => {
+      // Inisialisasi properti pada iterasi pertama
+      if (!acc.uuid) {
+        acc.uuid = b.uuid;
+        acc.patient_name = b.patient_name;
+        acc.invoice_code = b.invoice_code;
+        acc.bill_code = b.bill_code;
+        acc.patient_uuid = b.patient_uuid;
+        acc.gender = b.gender;
+        acc.ppn = b.ppn;
+        acc.voucher_code = b.voucher_code;
+        acc.voucher_value = b.voucher_value;
+        acc.voucher_type = b.voucher_type;
+        acc.discount = b.discount;
+        acc.close_bill = b.close_bill;
+        acc.admin_fee = b.admin_fee;
+        
+        // Inisialisasi nilai numerik
+        acc.grand_total = 0;
+        acc.sub_total = 0;
+        acc.total_tindakan = 0;
+        acc.total_obat = 0;
+        acc.total_alkes = 0;
+        acc.total_ruangan = 0;
+        acc.total_penunjang = 0;
+        acc.total_paid = 0;
       }
 
-      finalBill.grand_total = finalBill.sub_total + finalBill.ppn + finalBill.admin_fee;
+      // Akumulasi nilai numerik dari setiap baris hasil query
+      acc.grand_total += parseFloat(b.grand_total) || 0;
+      acc.sub_total += parseFloat(b.sub_total) || 0;
+      acc.total_tindakan += parseFloat(b.total_tindakan) || 0;
+      acc.total_obat += parseFloat(b.total_obat) || 0;
+      acc.total_alkes += parseFloat(b.total_alkes) || 0;
+      acc.total_ruangan += parseFloat(b.total_ruangan) || 0;
+      acc.total_penunjang += parseFloat(b.total_penunjang) || 0;
+      acc.total_paid += parseFloat(b.total_paid) || 0;
 
-      const totalPaid = parseFloat(finalBill.total_paid) || 0;
-      const grandTotal = parseFloat(finalBill.grand_total) || 0;
-      finalBill.paid = totalPaid >= grandTotal;
+      return acc;
+    }, {});
 
-      finalBill._rawBillResult = bill;
-
-      return finalBill;
+    // Tentukan status lunas berdasarkan grand_total
+    finalBill.paid = finalBill.total_paid >= finalBill.grand_total;
+    // Simpan hasil query mentah jika dibutuhkan di tempat lain
+    finalBill._rawBillResult = bill;
+    return finalBill;
   }
+
+  static async FindBill(search) {
+    try {
+      const { faskesUuid } = Context.get(CTX_AUTHOR);
+      
+      const bills = await db('bills as b')
+        .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
+        .select(
+          'b.uuid',
+          'b.name as patient_name',
+          'b.invoice_code',
+          'b.bill_code',
+          'b.patient_uuid',
+          'b.grand_total', 
+          'b.status as paid' 
+        )
+        .where('b.faskes_uuid', faskesUuid)
+        .where('b.close_bill', false)
+        .andWhere(function () {
+          this.where('p.no_rm', 'ilike', `%${search}%`)
+            .orWhere('b.invoice_code', 'ilike', `%${search}%`)
+            .orWhere('b.bill_code', 'ilike', `%${search}%`)
+            .orWhere('b.name', 'ilike', `%${search}%`);
+        });
+
+        bills.forEach(bill => {
+          const subTotal = parseFloat(bill.sub_total) || 0;
+          const ppn = parseFloat(bill.ppn) || 0;
+          const adminFee = parseFloat(bill.admin_fee) || 0;
+
+          let totalBeforeDiscount = subTotal + ppn + adminFee;
+
+          if (bill.voucher_code) {
+            totalBeforeDiscount = calculateVoucher({
+              amount: totalBeforeDiscount,
+              type: bill.voucher_type,
+              value: bill.voucher_value
+            });
+          }
+
+          if (bill.discount > 0) {
+            bill.grand_total = calculateDiscount({
+              amount: totalBeforeDiscount,
+              discount: bill.discount
+            });
+          } else {
+            bill.grand_total = totalBeforeDiscount;
+          }
+          
+          const totalPaid = parseFloat(bill.total_paid) || 0;
+          bill.paid = totalPaid >= bill.grand_total;
+      });
+
+        return bills;
+
+    } catch (error) {
+        throw error;
+    }
+  }
+
+
 
   static async GetDetailBill(uuid) {
     try {
@@ -201,12 +219,12 @@ export default class PaymentRepository {
         })
         .whereNull("sb.deleted_at");
 
-        delete finalBill._rawBillResult;
+      delete finalBill._rawBillResult;
 
-        return {
-          ...finalBill,
-          service_bill,
-        };
+      return {
+        ...finalBill,
+        service_bill,
+      };
     } catch (error) {
       throw error;
     }
@@ -353,19 +371,33 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const { code } = data;
+      
+      // Ambil data tagihan saat ini
       const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
       if (!bill) throw new NotfoundException("Bill not found");
-      if (bill.voucher_code) throw new BadRequestException("This bill already has a voucher");
+      if (bill.voucher_code) throw new BadRequestException("Tagihan sudah memiliki voucher");
 
+      // Validasi voucher
       const v = await VoucherRepository.CheckValidVoucher(code);
       const billUsedVoucher = await this.CountBillUsedVoucherCode(code);
       if (billUsedVoucher >= v.qty) throw new BadRequestException("Voucher has been used up");
 
+      // Data sementara dan hitung grand total baru
+      const tempBillData = {
+        ...bill,
+        voucher_code: v.code,
+        voucher_value: v.value,
+        voucher_type: v.type,
+      };
+      const newGrandTotal = this._calculateBillTotals(tempBillData);
+
+      // Update tagihan dengan voucher
       await db.transaction(async (trx) => {
         await trx("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).update({
           voucher_code: v.code,
           voucher_value: v.value,
           voucher_type: v.type,
+          grand_total: newGrandTotal,
         });
       });
       return true;
@@ -379,14 +411,19 @@ export default class PaymentRepository {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const { value } = data;
 
+      // Ambil data tagihan saat ini
       const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
 
       if (!bill) throw new NotfoundException("Bill not found");
-      if (bill.discount) throw new BadRequestException("This bill already has a discount");
+      if (bill.discount) throw new BadRequestException("Tagihan sudah memiliki diskon");
+
+      const tempBillData = { ...bill, discount: value };
+      const newGrandTotal = this._calculateBillTotals(tempBillData);
 
       await db.transaction(async (trx) => {
         await trx("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).update({
           discount: value,
+          grand_total: newGrandTotal,
         });
       });
       return true;
@@ -411,7 +448,7 @@ export default class PaymentRepository {
       const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
 
       if (!bill) throw new NotfoundException("Bill not found");
-      if (bill.close_bill) throw new BadRequestException("Bill already closed");
+      if (bill.close_bill) throw new BadRequestException("Tagihan sudah ditutup");
 
       await db.transaction(async (trx) => {
         await trx("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).update({
@@ -536,7 +573,7 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const getCashier = await CashierRepository._getActiveShift(faskesUuid);
-      if (!getCashier) throw new BadRequestException("Cashier is not opened");
+      if (!getCashier) throw new BadRequestException("Shift kasir belum dibuka");
 
       const bill = await this.GetTotalBill(uuid);
       const history = (await this.GetPaymentHistory(uuid)).payment_history;
@@ -545,16 +582,18 @@ export default class PaymentRepository {
         return acc + (parseFloat(row.amount) || 0);
       }, 0);
 
+      const finalGrandTotal = bill.grand_total;
+
       const epsilon = 0.001; 
       if (totalPayment >= (bill.grand_total - epsilon) || bill.payment_status) {
-          throw new BadRequestException("Bill already paid");
+          throw new BadRequestException("Tagihan sudah lunas");
       }
 
       let amountToRecord = parseFloat(data.amount) || 0;
       let changeAmount = 0;
       let updatedPaymentStatus = false;
 
-      const remainingDebt = bill.grand_total - totalPayment;
+      const remainingDebt = finalGrandTotal - totalPayment;
 
       if (amountToRecord >= (remainingDebt - epsilon)) {
         updatedPaymentStatus = true;

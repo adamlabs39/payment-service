@@ -6,7 +6,7 @@ import PaymentValidation from "../validations/PaymentValidation.js";
 export default class PaymentService {
     static async findPayment(search){
         try {
-            // if(!search) throw new BadRequestException('Search is required');
+            if(!search) throw new BadRequestException('Search is required');
             return await PaymentRepository.FindBill(search);
         } catch (error) {
             throw error;

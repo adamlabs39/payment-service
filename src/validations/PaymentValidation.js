@@ -2,7 +2,19 @@ import {z} from "zod";
 
 export default class PaymentValidation{
     static APPLY_DISCOUNT = z.object({
-        value: z.number().min(1).max(100),
+        value: z.preprocess(
+            (val) => {
+                if (typeof val === 'string') {
+                    return parseFloat(val.replace(',', '.'));
+                }
+                return val;
+            },
+            z.number({
+                invalid_type_error: "Nilai diskon harus berupa angka",
+            })
+            .min(0.01, { message: "Diskon harus lebih besar dari 0" })
+            .max(100, { message: "Diskon tidak boleh melebihi total pembayaran" })
+        ),
     });
 
     static PAYMENT_REQUEST = z.object({
@@ -22,7 +34,6 @@ export default class PaymentValidation{
         note: z.string().nullable(),
         information: z.string().nullable(),
     }).superRefine((data, ctx) => {
-        // Conditional validation
         if (data.payment_type === 'CASH' && !data.payment_method) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
