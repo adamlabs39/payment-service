@@ -88,4 +88,22 @@ export default class PaymentService {
             throw error;
         }
     }
+
+    static async getClosedBillList(queryParams) {
+        try {
+            return await PaymentRepository.getClosedBill(queryParams);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async payDebtOnClosedBill(uuid, data) {
+        try {
+            if (!uuid) throw new BadRequestException('UUID is required');
+            const validData = ZodValidator.validate(PaymentValidation.DEBT_PAYMENT, data);
+            return await PaymentRepository.PayDebt(uuid, validData);
+        } catch (error) {
+            throw error;
+        }
+    }
 }

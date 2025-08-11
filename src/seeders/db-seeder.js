@@ -97,6 +97,13 @@ const DBSeeder = async () => {
                 const ppn = subTotal * 0.11;
                 const grandTotal = subTotal + ppn + adminFee;
 
+                console.log(`[SEEDER] Inserting Bill for ${faskes.code}-00${i}:`, { 
+                    subTotal, 
+                    ppn, 
+                    adminFee, 
+                    grandTotal 
+                });
+
                 // Masukkan data ke tabel dalam urutan yang benar
                 await queryInterface.bulkInsert('bills', [{
                     uuid: billUuid, faskes_uuid: faskes.uuid, patient_uuid: patientUuid, name: `Pasien Seed ${i} ${faskes.code}`,

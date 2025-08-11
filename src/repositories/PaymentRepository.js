@@ -1,6 +1,7 @@
 import db from "../configs/knex-config.js";
 import { Context } from "../middlewares/context.js";
 import { CTX_AUTHOR } from "../constants/context-constant.js";
+import {KnexPagination} from "../helpers/pagination.js";
 import NotfoundException from "../exceptions/notfound-exception.js";
 import CantProcessDataException from "../exceptions/CantProcessDataException.js";
 import VoucherRepository from "./VoucherRepository.js";
@@ -154,34 +155,6 @@ export default class PaymentRepository {
             .orWhere('b.bill_code', 'ilike', `%${search}%`)
             .orWhere('b.name', 'ilike', `%${search}%`);
         });
-
-        bills.forEach(bill => {
-          const subTotal = parseFloat(bill.sub_total) || 0;
-          const ppn = parseFloat(bill.ppn) || 0;
-          const adminFee = parseFloat(bill.admin_fee) || 0;
-
-          let totalBeforeDiscount = subTotal + ppn + adminFee;
-
-          if (bill.voucher_code) {
-            totalBeforeDiscount = calculateVoucher({
-              amount: totalBeforeDiscount,
-              type: bill.voucher_type,
-              value: bill.voucher_value
-            });
-          }
-
-          if (bill.discount > 0) {
-            bill.grand_total = calculateDiscount({
-              amount: totalBeforeDiscount,
-              discount: bill.discount
-            });
-          } else {
-            bill.grand_total = totalBeforeDiscount;
-          }
-          
-          const totalPaid = parseFloat(bill.total_paid) || 0;
-          bill.paid = totalPaid >= bill.grand_total;
-      });
 
         return bills;
 
@@ -513,23 +486,24 @@ export default class PaymentRepository {
           'b.patient_uuid',
           'b.status as is_paid',
           db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
-          db.raw(`(SELECT STRING_AGG(DISTINCT sb.type, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type`)
+          db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type`)
         )
         .where('b.faskes_uuid', faskesUuid)
         .where('b.close_bill', true);
+        
+      if (params.status === 'LUNAS') {
+        query.where('b.status', true);
+      } else if (params.status === 'PIUTANG') {
+        query.where('b.status', false);
+      }
 
       if (params.search) {
         query.andWhere(function () {
           this.where('b.name', 'ilike', `%${params.search}%`)
             .orWhere('p.no_rm', 'ilike', `%${params.search}%`)
-            .orWhere('b.invoice_code', 'ilike', `%${params.search}%`);
+            .orWhere('b.invoice_code', 'ilike', `%${params.search}%`)
+            .orWhere('b.bill_code', 'ilike', `%${params.search}%`);
         });
-      }
-
-      if (params.status === 'LUNAS') {
-        query.where('b.status', true);
-      } else if (params.status === 'PIUTANG') {
-        query.where('b.status', false);
       }
 
       if (params.start_date && params.end_date) {
@@ -633,5 +607,72 @@ export default class PaymentRepository {
     } catch (error) {
       throw error;
     }
+  }
+
+  static async PayDebt(uuid, data){
+      const { faskesUuid } = Context.get(CTX_AUTHOR);
+      const { amount, payment_method, note, information } = data;
+
+      return db.transaction(async (trx) => {
+        // Ambil data tagihan dan kunci barisnya untuk update
+        const bill = await trx("bills")
+          .where({ uuid: uuid, faskes_uuid: faskesUuid })
+          .forUpdate()
+          .first();
+
+        // Lakukan validasi
+        if (!bill) throw new NotfoundException("Tagihan tidak ditemukan");
+        if (!bill.close_bill) throw new BadRequestException("Tagihan ini belum ditutup");
+        if (bill.status) throw new BadRequestException("Tagihan ini sudah lunas");
+
+        // Hitung sisa hutang saat ini
+        const paymentSum = await trx("payment_history")
+          .where("bill_uuid", uuid)
+          .sum('amount as totalPaid')
+          .first();
+        const totalPaid = parseFloat(paymentSum.totalPaid) || 0;
+        const remainingDebt = bill.grand_total - totalPaid;
+
+        if (remainingDebt <= 0) {
+          throw new BadRequestException("Tagihan ini sudah tidak memiliki hutang");
+        }
+
+        // Proses nominal pembayaran
+        let amountToRecord = parseFloat(amount) || 0;
+        let changeAmount = 0;
+
+        if (amountToRecord > remainingDebt) {
+          changeAmount = amountToRecord - remainingDebt;
+          amountToRecord = remainingDebt; 
+        }
+        
+        // Masukkan ke riwayat pembayaran
+        await trx("payment_history").insert({
+          uuid: uuidv7(),
+          faskes_uuid: faskesUuid,
+          bill_uuid: uuid,
+          kasir_uuid: (await CashierRepository._getActiveShift(faskesUuid, trx))?.uuid, 
+          amount: amountToRecord,
+          payment_type: 'CASH', 
+          payment_method: payment_method,
+          information: information,
+          note: note,
+          created_at: moment().unix(),
+          updated_at: moment().unix(),
+        });
+        
+        const newTotalPaid = totalPaid + amountToRecord;
+        const epsilon = 0.001; 
+        if (newTotalPaid >= (bill.grand_total - epsilon)) {
+            await trx("bills")
+                .where({ uuid: uuid })
+                .update({ status: true, updated_at: moment().unix() });
+        }
+        return { 
+          success: true, 
+          change: changeAmount,
+          message: "Pembayaran hutang berhasil dicatat."
+        };
+      });
   }
 }

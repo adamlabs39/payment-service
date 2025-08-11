@@ -95,4 +95,24 @@ export default class PaymentController {
             next(error);
         }
     }
+
+    static async getClosedBillList(req, res, next) {
+        try {
+            const result = await PaymentService.getClosedBillList(req.query);
+            return res.json(successResponse("Data berhasil ditampilkan", result));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async payDebtOnClosedBill(req, res, next) {
+        try {
+            const { uuid } = req.params;
+            const data = req.body;
+            const result = await PaymentService.payDebtOnClosedBill(uuid, data);
+            return res.json(successResponse("Pembayaran hutang berhasil", result));
+        } catch (error) {
+            next(error);
+        }
+    }
 }

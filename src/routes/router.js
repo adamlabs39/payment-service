@@ -7,15 +7,18 @@ const r = express.Router();
 
 
 // Payment
+r.get('/closed-bills', authorizationSdk([]), PaymentController.getClosedBillList);
+r.get('/closed-bills/:uuid/history', authorizationSdk([]), PaymentController.getPaymentHistory);
 r.get('/payment',authorizationSdk([]),PaymentController.findPayment);
 r.get('/payment/:uuid',authorizationSdk([]),PaymentController.getDetailBill);
 r.get('/payment/:uuid/items',authorizationSdk([]),PaymentController.getBillItems);
+r.get('/payment/:uuid/detail',authorizationSdk([]),PaymentController.getDetailPayment);
 r.post('/payment/:uuid/voucher',authorizationSdk([]),PaymentController.applyVoucher);
 r.post('/payment/:uuid/discount',authorizationSdk([]),PaymentController.applyDiscount);
 r.post('/payment/:uuid/close',authorizationSdk([]),PaymentController.closeBill);
 r.post('/payment/:uuid/payment',authorizationSdk([]),PaymentController.paymentBill);
-r.get('/payment/:uuid/history',authorizationSdk([]),PaymentController.getPaymentHistory);
-r.get('/payment/:uuid/detail',authorizationSdk([]),PaymentController.getDetailPayment);
+r.post('/closed-bills/:uuid/pay', authorizationSdk([]), PaymentController.payDebtOnClosedBill);
+
 // Cashier
 r.get('/cashier/check',authorizationSdk([]),CashierController.CheckCashier);
 r.get('/cashier/close-day/check', authorizationSdk([]), CashierController.getCloseDayConfirmation);
