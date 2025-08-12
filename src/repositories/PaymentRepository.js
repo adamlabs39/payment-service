@@ -516,13 +516,16 @@ export default class PaymentRepository {
         }
 
       if (params.search) {
-        query.andWhere(function () {
-          this.where('b.name', 'ilike', `%${params.search}%`)
-            .orWhere('p.no_rm', 'ilike', `%${params.search}%`)
-            .orWhere('b.invoice_code', 'ilike', `%${params.search}%`)
-            .orWhere('b.bill_code', 'ilike', `%${params.search}%`)
-            .orWhere('a.full_address', 'ilike', `%${params.search}%`);
-        });
+        const searchTerms = params.search.trim().split(/\s+/);
+        for (const term of searchTerms) {
+          query.andWhere(function() {
+              this.orWhere('b.name', 'ilike', `%${term}%`)
+                  .orWhere('p.no_rm', 'ilike', `%${term}%`)
+                  .orWhere('b.invoice_code', 'ilike', `%${term}%`)
+                  .orWhere('b.bill_code', 'ilike', `%${term}%`)
+                  .orWhere('a.full_address', 'ilike', `%${term}%`);
+          });
+        }
       }
 
       if (params.start_date && params.end_date) {
