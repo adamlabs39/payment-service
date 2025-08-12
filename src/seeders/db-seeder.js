@@ -46,7 +46,49 @@ const DBSeeder = async () => {
             status_biaya_lain: true, value_biaya_lain: 5000, created_at: moment().unix(), updated_at: moment().unix(),
         }));
         await queryInterface.bulkInsert('faskes_profiles', faskesData, { transaction });
-
+        console.log("Memasukkan data voucher...");
+        const vouchersToSeed = [];
+        for (const faskes of faskesList) {
+            vouchersToSeed.push(
+                {
+                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-OK-${faskes.code}`,
+                    name: 'Voucher Diskon 10 Persen', type: 'persentase', value: 10, qty: 100,
+                    status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                },
+                {
+                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BESAR-${faskes.code}`,
+                    name: 'Voucher Potongan 300rb', type: 'potongan', value: 300000, qty: 5,
+                    status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                },
+                {
+                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-LAMA-${faskes.code}`,
+                    name: 'Voucher Sudah Lewat', type: 'persentase', value: 20, qty: 100,
+                    status: true, start_date: moment().subtract(1, 'month').unix(), end_date: moment().subtract(1, 'day').unix(),
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                },
+                {
+                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BARU-${faskes.code}`,
+                    name: 'Voucher Akan Datang', type: 'persentase', value: 15, qty: 100,
+                    status: true, start_date: moment().add(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                },
+                {
+                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-NONAKTIF-${faskes.code}`,
+                    name: 'Voucher Tidak Aktif', type: 'potongan', value: 25000, qty: 100,
+                    status: false, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                },
+                {
+                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-HABIS-${faskes.code}`,
+                    name: 'Voucher Stok Terbatas', type: 'potongan', value: 10000, qty: 0,
+                    status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                }
+            );
+        }
+        await queryInterface.bulkInsert('voucher', vouchersToSeed, { transaction });
 
         // <<< PERUBAHAN 1: DEFINISIKAN TEMPLATE LAYANAN DI SINI >>>
         const serviceTemplates = [

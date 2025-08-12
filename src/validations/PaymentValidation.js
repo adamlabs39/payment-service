@@ -21,7 +21,7 @@ export default class PaymentValidation{
         amount: z.number({
             required_error: "Jumlah bayar harus diisi",
             invalid_type_error: "Jumlah bayar harus diisi",
-        }).min(1, { message: "Jumlah bayar minimal 1" }),
+        }).min(1, { message: "Jumlah bayar harus lebih dari 0" }),
         payment_type: z.enum(['CASH', 'INSURANCE'], {
             required_error: "Cara bayar harus dipilih",
             invalid_type_error: "Cara bayar harus dipilih"

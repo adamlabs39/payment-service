@@ -351,17 +351,21 @@ export default class PaymentRepository {
       if (bill.voucher_code) throw new BadRequestException("Tagihan sudah memiliki voucher");
 
       // Validasi voucher
-      const v = await VoucherRepository.CheckValidVoucher(code);
-      const billUsedVoucher = await this.CountBillUsedVoucherCode(code);
-      if (billUsedVoucher >= v.qty) throw new BadRequestException("Voucher has been used up");
+      if (bill.voucher_code) {
+        throw new BadRequestException("Hanya satu voucher yang dapat digunakan dalam satu transaksi");
+      }
 
-      // Data sementara dan hitung grand total baru
-      const tempBillData = {
-        ...bill,
-        voucher_code: v.code,
-        voucher_value: v.value,
-        voucher_type: v.type,
+      const currentBillTotal = (bill.sub_total || 0) + (bill.ppn || 0) + (bill.admin_fee || 0);
+
+      const v = await VoucherRepository.validateAndGetVoucher(code, currentBillTotal);
+      
+      const tempBillData = { 
+        ...bill, 
+        voucher_code: v.code, 
+        voucher_value: v.value, 
+        voucher_type: v.type 
       };
+
       const newGrandTotal = this._calculateBillTotals(tempBillData);
 
       // Update tagihan dengan voucher
