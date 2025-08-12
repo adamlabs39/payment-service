@@ -507,11 +507,13 @@ export default class PaymentRepository {
         .where('b.faskes_uuid', faskesUuid)
         .where('b.close_bill', true);
         
-      if (params.status === 'LUNAS') {
-        query.where('b.status', true);
-      } else if (params.status === 'PIUTANG') {
-        query.where('b.status', false);
-      }
+        if (params.status && params.status.toUpperCase() !== 'SEMUA') {
+          if (params.status.toUpperCase() === 'LUNAS') {
+            query.where('b.status', true);
+          } else if (params.status.toUpperCase() === 'PIUTANG') {
+            query.where('b.status', false);
+          }
+        }
 
       if (params.search) {
         query.andWhere(function () {
