@@ -91,7 +91,8 @@ export default class PaymentService {
 
     static async getClosedBillList(queryParams) {
         try {
-            return await PaymentRepository.getClosedBill(queryParams);
+            const validQueryParams = ZodValidator.validate(PaymentValidation.GET_CLOSED_BILLS_FILTER, queryParams);
+            return await PaymentRepository.getClosedBill(validQueryParams);
         } catch (error) {
             throw error;
         }

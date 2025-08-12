@@ -67,4 +67,19 @@ export default class PaymentValidation{
         note: z.string().optional().nullable(),
         information: z.string().optional().nullable(),
     });
+
+    static GET_CLOSED_BILLS_FILTER = z.object({
+        search: z.string().optional(),
+        status: z.enum(['LUNAS', 'PIUTANG']).optional(),
+        start_date: z.string()
+        .regex(/^\d+$/, { message: "start_date must be a Unix timestamp string" })
+        .transform(Number)
+        .optional(),
+        end_date: z.string()
+        .regex(/^\d+$/, { message: "end_date must be a Unix timestamp string" })
+        .transform(Number)
+        .optional(),
+        service_type: z.string().optional(),
+        payment_type: z.enum(['TUNAI', 'ASURANSI']).optional(),
+    });
 }

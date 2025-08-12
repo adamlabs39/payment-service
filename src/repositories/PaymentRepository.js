@@ -156,7 +156,7 @@ export default class PaymentRepository {
             .orWhere('b.name', 'ilike', `%${search}%`);
         });
 
-        return bills;
+      return bills;
 
     } catch (error) {
         throw error;
@@ -477,6 +477,7 @@ export default class PaymentRepository {
 
       const query = db('bills as b')
         .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
+        .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
         .select(
           'b.uuid',
           'b.name as patient_name',
@@ -485,6 +486,17 @@ export default class PaymentRepository {
           'b.grand_total',
           'b.patient_uuid',
           'b.status as is_paid',
+          'a.full_address',
+          db.raw(`(
+            CASE 
+                WHEN EXISTS (
+                    SELECT 1 FROM service_bill sb 
+                    WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true
+                ) 
+                THEN 'ASURANSI' 
+                ELSE 'TUNAI' 
+            END
+        )as payment_type`),
           db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
           db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type`)
         )
@@ -502,7 +514,8 @@ export default class PaymentRepository {
           this.where('b.name', 'ilike', `%${params.search}%`)
             .orWhere('p.no_rm', 'ilike', `%${params.search}%`)
             .orWhere('b.invoice_code', 'ilike', `%${params.search}%`)
-            .orWhere('b.bill_code', 'ilike', `%${params.search}%`);
+            .orWhere('b.bill_code', 'ilike', `%${params.search}%`)
+            .orWhere('a.full_address', 'ilike', `%${params.search}%`);
         });
       }
 
