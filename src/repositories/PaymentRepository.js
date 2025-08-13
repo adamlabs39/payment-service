@@ -507,24 +507,34 @@ export default class PaymentRepository {
         .where('b.faskes_uuid', faskesUuid)
         .where('b.close_bill', true);
         
-        if (params.status && params.status.toUpperCase() !== 'SEMUA') {
-          if (params.status.toUpperCase() === 'LUNAS') {
-            query.where('b.status', true);
-          } else if (params.status.toUpperCase() === 'PIUTANG') {
-            query.where('b.status', false);
-          }
+      if (params.status && params.status.toUpperCase() !== 'SEMUA') {
+        if (params.status.toUpperCase() === 'LUNAS') {
+          query.where('b.status', true);
+        } else if (params.status.toUpperCase() === 'PIUTANG') {
+          query.where('b.status', false);
         }
+      }
 
       if (params.search) {
         const searchTerms = params.search.trim().split(/\s+/);
-        for (const term of searchTerms) {
+
+        const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(searchTerms);
+        if (isUUID) {
           query.andWhere(function() {
-              this.orWhere('b.name', 'ilike', `%${term}%`)
-                  .orWhere('p.no_rm', 'ilike', `%${term}%`)
-                  .orWhere('b.invoice_code', 'ilike', `%${term}%`)
-                  .orWhere('b.bill_code', 'ilike', `%${term}%`)
-                  .orWhere('a.full_address', 'ilike', `%${term}%`);
+              this.where('b.uuid', searchTerm)
+                  .orWhere('p.uuid', searchTerm);
           });
+        } else {
+          const searchTerms = searchTerm.split(/\s+/);
+          for (const term of searchTerms) {
+              query.andWhere(function() {
+                  this.orWhere('b.name', 'ilike', `%${term}%`)
+                      .orWhere('p.no_rm', 'ilike', `%${term}%`)
+                      .orWhere('b.invoice_code', 'ilike', `%${term}%`)
+                      .orWhere('b.bill_code', 'ilike', `%${term}%`)
+                      .orWhere('a.full_address', 'ilike', `%${term}%`);
+              });
+          }
         }
       }
 
@@ -547,6 +557,71 @@ export default class PaymentRepository {
                 .from('service_bill as sb')
                 .whereRaw('sb.bill_uuid = b.uuid')
                 .where('sb.with_insurance', convertPayment(params.filter_payment));
+        });
+      }
+      return await KnexPagination.init(query, params);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getApsOtc (params) {
+    try {
+      const { faskesUuid } = Context.get(CTX_AUTHOR);
+      
+      const serviceTypeMap  = {
+        APS: ['OTC', 'LAB', 'FISIO'],
+        OTC: ['OTC'],
+      }
+
+      const query = db('bills as b')
+      .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
+      .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
+      .select(
+        'b.uuid', 'b.name as patient_name', 'b.invoice_code',
+        'b.bill_code', 'b.grand_total', 'b.patient_uuid',
+        'b.status as is_paid', 'a.full_address',
+        db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true) THEN 'ASURANSI' ELSE 'TUNAI' END) as payment_type`),
+        db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
+        db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type_list`)
+      )
+      .where('b.faskes_uuid', faskesUuid)
+      .where('b.close_bill', false)
+      .where('b.status', false);
+
+      if (params.search) {
+        const searchTerms = params.search.trim().split(/\s+/);
+        for (const term of searchTerms) {
+            query.andWhere(function() {
+                this.orWhere('b.name', 'ilike', `%${term}%`)
+                    .orWhere('p.no_rm', 'ilike', `%${term}%`)
+                    .orWhere('a.full_address', 'ilike', `%${term}%`);
+            });
+        }
+      }
+
+      if (params.start_date && params.end_date) {
+        query.whereBetween('b.created_at', [
+            moment.unix(params.start_date).startOf('day').unix(),
+            moment.unix(params.end_date).endOf('day').unix()
+        ]);
+      }
+
+      if (params.filter_pelayanan && serviceTypeMap[params.filter_pelayanan.toUpperCase()]) {
+        query.whereExists(function() {
+            this.select(1)
+                .from('service_bill as sb')
+                .whereRaw('sb.bill_uuid = b.uuid')
+                .whereIn('sb.type', serviceTypeMap[params.filter_pelayanan.toUpperCase()]);
+        });
+      }
+
+      if (params.filter_pembayaran) {
+        query.whereExists(function() {
+            this.select(1)
+                .from('service_bill as sb')
+                .whereRaw('sb.bill_uuid = b.uuid')
+                .where('sb.with_insurance', params.filter_pembayaran.toUpperCase() === 'ASURANSI');
         });
       }
       return await KnexPagination.init(query, params);

@@ -99,7 +99,7 @@ export default class PaymentController {
     static async getClosedBillList(req, res, next) {
         try {
             const result = await PaymentService.getClosedBillList(req.query);
-            return res.json(successResponse("Data berhasil ditampilkan", result));
+            return res.json(successResponse("Data berhasil ditampilkan", result.data, result.pagination));
         } catch (error) {
             next(error);
         }
