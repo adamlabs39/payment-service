@@ -551,12 +551,12 @@ export default class PaymentRepository {
         });
       }
 
-      if (params.filter_payment) {
+      if (params.payment_type) {
         query.whereExists(function() {
             this.select(1)
                 .from('service_bill as sb')
                 .whereRaw('sb.bill_uuid = b.uuid')
-                .where('sb.with_insurance', convertPayment(params.filter_payment));
+                .where('sb.with_insurance', convertPayment(params.payment_type));
         });
       }
       console.log("Generated SQL Query:", query.toSQL().toNative());
