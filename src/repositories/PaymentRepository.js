@@ -557,14 +557,26 @@ export default class PaymentRepository {
       }
 
       if (params.payment_type) {
-        query.whereExists(function() {
-            this.select(1)
-                .from('service_bill as sb')
-                .whereRaw('sb.bill_uuid = b.uuid')
-                .where('sb.with_insurance', convertPayment(params.payment_type));
-        });
+        const paymentType = params.payment_type.toUpperCase();
+
+        if (paymentType === 'ASURANSI') {
+          query.whereExists(function() {
+              this.select(1).from('service_bill as sb').whereRaw('sb.bill_uuid = b.uuid').where('sb.with_insurance', true);
+          });
+          query.whereNotExists(function() {
+              this.select(1).from('payment_history as ph').whereRaw('ph.bill_uuid = b.uuid').where('ph.payment_type', 'CASH');
+          });
+        } else if (paymentType === 'TUNAI') {
+          query.whereNot(function() {
+              this.whereExists(function() {
+                  this.select(1).from('service_bill as sb').whereRaw('sb.bill_uuid = b.uuid').where('sb.with_insurance', true);
+              }).whereNotExists(function() {
+                  this.select(1).from('payment_history as ph').whereRaw('ph.bill_uuid = b.uuid').where('ph.payment_type', 'CASH');
+              });
+          });
+        }
       }
-      console.log("Generated SQL Query:", query.toSQL().toNative());
+      query.orderBy('b.updated_at', 'desc');
       return await KnexPagination.init(query, params);
     } catch (error) {
       throw error;
