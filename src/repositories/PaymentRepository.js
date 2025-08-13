@@ -542,12 +542,12 @@ export default class PaymentRepository {
         query.whereBetween('b.updated_at', [params.start_date, params.end_date]);
       }
 
-      if (params.filter_type && filterChip[params.filter_type]) {
+      if (params.service_type && filterChip[params.service_type.toUpperCase()]) {
         query.whereExists(function() {
             this.select(1)
                 .from('service_bill as sb')
                 .whereRaw('sb.bill_uuid = b.uuid')
-                .whereIn('sb.type', filterChip[params.filter_type]);
+                .whereIn('sb.type', filterChip[params.service_type.toUpperCase()]);
         });
       }
 
@@ -559,6 +559,7 @@ export default class PaymentRepository {
                 .where('sb.with_insurance', convertPayment(params.filter_payment));
         });
       }
+      console.log("Generated SQL Query:", query.toSQL().toNative());
       return await KnexPagination.init(query, params);
     } catch (error) {
       throw error;
