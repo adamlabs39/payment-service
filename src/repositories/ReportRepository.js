@@ -65,7 +65,7 @@ export default class ReportRepository {
             const availShiftType = ['1', '2', '3'];
     
             let query = db('payment_history as ph')
-            .leftJoin('bixlls as b', 'ph.bill_uuid', 'b.uuid')
+            .leftJoin('bills as b', 'ph.bill_uuid', 'b.uuid')
             .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
             .leftJoin('cashier_report as cr', 'ph.kasir_uuid', 'cr.uuid')
             .select(
