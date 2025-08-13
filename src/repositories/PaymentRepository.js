@@ -60,10 +60,11 @@ export default class PaymentRepository {
       .select(
         "b.uuid", "b.name as patient_name", "b.invoice_code", "b.bill_code",
         "b.patient_uuid", "p.gender", "b.merge_with",
-        "b.grand_total", 
-        "b.sub_total",   
-        "b.ppn", "b.admin_fee", "b.voucher_code", "b.voucher_value",
-        "b.voucher_type", "b.close_bill", "b.discount",
+        "b.grand_total", "b.sub_total", "b.ppn", "b.admin_fee", 
+        "b.voucher_code", "b.voucher_value", "b.voucher_type", 
+        "b.close_bill", "b.discount",
+        "b.status as payment_status",
+        db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
         db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
         db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
         db.raw(`SUM(CASE WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee ELSE 0 END) AS total_obat`),
@@ -79,7 +80,7 @@ export default class PaymentRepository {
       .groupBy(
         "b.uuid", "p.gender", "b.name", "b.invoice_code", "b.bill_code", "b.patient_uuid",
         "b.grand_total", "b.sub_total", "b.ppn", "b.admin_fee", "b.voucher_code",
-        "b.voucher_value", "b.voucher_type", "b.close_bill"
+        "b.voucher_value", "b.voucher_type", "b.close_bill", "b.status"
     );
     
     if (!bill.length) throw new NotfoundException("Bill not found");
@@ -110,6 +111,8 @@ export default class PaymentRepository {
         acc.total_ruangan = 0;
         acc.total_penunjang = 0;
         acc.total_paid = 0;
+        acc.is_paid = b.is_paid;
+        acc.payment_status = b.payment_status;
       }
 
       // Akumulasi nilai numerik dari setiap baris hasil query
@@ -125,8 +128,6 @@ export default class PaymentRepository {
       return acc;
     }, {});
 
-    // Tentukan status lunas berdasarkan grand_total
-    finalBill.paid = finalBill.total_paid >= finalBill.grand_total;
     // Simpan hasil query mentah jika dibutuhkan di tempat lain
     finalBill._rawBillResult = bill;
     return finalBill;

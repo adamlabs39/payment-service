@@ -6,7 +6,7 @@ import PaymentValidation from "../validations/PaymentValidation.js";
 export default class PaymentService {
     static async findPayment(search){
         try {
-            if(!search) throw new BadRequestException('Search is required');
+            if(!search) throw new BadRequestException('Pencarian tagihan tidak boleh kosong');
             return await PaymentRepository.FindBill(search);
         } catch (error) {
             throw error;
@@ -15,7 +15,7 @@ export default class PaymentService {
 
     static async getDetailBill(uuid) {
         try{
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             return await PaymentRepository.GetDetailBill(uuid);
         }catch (error) {
             throw error;
@@ -24,7 +24,7 @@ export default class PaymentService {
 
     static async getBillItems(uuid) {
         try {
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             return await PaymentRepository.GetDetailBillItem(uuid);
         } catch (error) {
             throw error;
@@ -33,7 +33,7 @@ export default class PaymentService {
 
     static async getDetailPasienBill(uuid) {
         try {
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             return await PaymentRepository.getDetailPasienBill(uuid);
         } catch (error) {
             throw error;
@@ -42,7 +42,7 @@ export default class PaymentService {
 
     static async applyVoucher(uuid,data){
         try{
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             const validData = ZodValidator.validate(VoucherValidation.VoucherSchema, data);
             return await PaymentRepository.ApplyVoucher(uuid, validData);
         }catch (error) {
@@ -52,7 +52,7 @@ export default class PaymentService {
 
     static async applyDiscount(uuid,data){
         try{
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             const validData = ZodValidator.validate(PaymentValidation.APPLY_DISCOUNT, data);
             return await PaymentRepository.ApplyDiscount(uuid, validData);
         }catch (error) {
@@ -62,7 +62,7 @@ export default class PaymentService {
 
     static async closeBill(uuid){
         try{
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             return await PaymentRepository.CloseBill(uuid);
         }catch (error) {
             throw error;
@@ -71,7 +71,7 @@ export default class PaymentService {
 
     static async paymentBill(uuid, data){
         try{
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             const validData = ZodValidator.validate(PaymentValidation.PAYMENT_REQUEST, data);
             return await PaymentRepository.PaymentBill(uuid, validData);
         }catch (error) {
@@ -81,7 +81,7 @@ export default class PaymentService {
 
     static async getPaymentHistory(uuid){
         try{
-            if(!uuid) throw new BadRequestException('uuid is required');
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             return await PaymentRepository.GetPaymentHistory(uuid);
         }catch (error) {
             throw error;
@@ -91,8 +91,8 @@ export default class PaymentService {
 
     static async getDetailPayment(uuid){
         try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            return await PaymentRepository.getAllDetailBillItem(uuid);
+            if(!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+            return await PaymentRepository.GetDetailBill(uuid);
         }catch (error) {
             throw error;
         }
@@ -109,7 +109,7 @@ export default class PaymentService {
 
     static async payDebtOnClosedBill(uuid, data) {
         try {
-            if (!uuid) throw new BadRequestException('UUID is required');
+            if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
             const validData = ZodValidator.validate(PaymentValidation.DEBT_PAYMENT, data);
             return await PaymentRepository.PayDebt(uuid, validData);
         } catch (error) {
