@@ -516,9 +516,9 @@ export default class PaymentRepository {
       }
 
       if (params.search) {
-        const searchTerms = params.search.trim().split(/\s+/);
+        const searchTerm = params.search.trim();
 
-        const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(searchTerms);
+        const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(searchTerm);
         if (isUUID) {
           query.andWhere(function() {
               this.where('b.uuid', searchTerm)
