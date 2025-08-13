@@ -493,12 +493,12 @@ export default class PaymentRepository {
           'a.full_address',
           db.raw(`(
             CASE 
-                WHEN EXISTS (
-                    SELECT 1 FROM service_bill sb 
-                    WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true
-                ) 
-                THEN 'ASURANSI' 
-                ELSE 'TUNAI' 
+              WHEN 
+                EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true)
+                AND
+                NOT EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid AND ph.payment_type = 'CASH')
+              THEN 'ASURANSI'
+              ELSE 'TUNAI'
             END
         )as payment_type`),
           db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
