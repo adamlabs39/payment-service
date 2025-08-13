@@ -145,7 +145,8 @@ export default class PaymentRepository {
           'b.bill_code',
           'b.patient_uuid',
           'b.grand_total', 
-          'b.status as paid' 
+          'b.status as is_paid',
+          db.raw(`(CASE WHEN b.status = true THEN 'LUNAS' ELSE 'PIUTANG' END) as payment_status`),
         )
         .where('b.faskes_uuid', faskesUuid)
         .where('b.close_bill', false)
