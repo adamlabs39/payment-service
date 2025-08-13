@@ -13,6 +13,7 @@ r.get('/payment',authorizationSdk([]),PaymentController.findPayment);
 r.get('/payment/:uuid',authorizationSdk([]),PaymentController.getDetailBill);
 r.get('/payment/:uuid/items',authorizationSdk([]),PaymentController.getBillItems);
 r.get('/payment/:uuid/detail',authorizationSdk([]),PaymentController.getDetailPayment);
+r.get('/payment/:uuid/pasien',authorizationSdk([]),PaymentController.getDetailPasienBill);
 r.post('/payment/:uuid/voucher',authorizationSdk([]),PaymentController.applyVoucher);
 r.post('/payment/:uuid/discount',authorizationSdk([]),PaymentController.applyDiscount);
 r.post('/payment/:uuid/close',authorizationSdk([]),PaymentController.closeBill);

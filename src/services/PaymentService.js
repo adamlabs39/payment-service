@@ -31,6 +31,15 @@ export default class PaymentService {
         }
     }
 
+    static async getDetailPasienBill(uuid) {
+        try {
+            if(!uuid) throw new BadRequestException('uuid is required');
+            return await PaymentRepository.getDetailPasienBill(uuid);
+        } catch (error) {
+            throw error;
+        }
+    }
+
     static async applyVoucher(uuid,data){
         try{
             if(!uuid) throw new BadRequestException('uuid is required');

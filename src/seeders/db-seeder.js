@@ -122,6 +122,9 @@ const DBSeeder = async () => {
                 ]
             }
         ];
+
+        const agamaList = ['Islam', 'Kristen Protestan', 'Kristen Katolik', 'Hindu', 'Buddha', 'Lain-lain'];
+        const birthPlaces = ['Pasuruan', 'Sidoarjo', 'Bangkalan', 'Kediri', 'Merbabu', 'Rinjani'];
         
         // Buat 10 Pasien & Tagihan untuk SETIAP Faskes
         for (const faskes of faskesList) {
@@ -129,30 +132,46 @@ const DBSeeder = async () => {
                 const patientUuid = uuidv7();
                 const billUuid = uuidv7();
                 const addressUuid = uuidv7();
-                
-                // Buat data pasien (tidak berubah)
-                await queryInterface.bulkInsert('patients', [{
-                    uuid: patientUuid, faskes_uuid: faskes.uuid, no_rm: `SEEDER-${faskes.code}-00${i}`,
-                    name: `Pasien Seed ${i} ${faskes.code}`, gender: 'Laki-laki', phone: '08123456789',
-                    address_uuid: addressUuid, status: true, identity: 'KTP', no_identity: `35260000000000${i}`,
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                }], { transaction });
+                const birthDetailUuid = uuidv7();
 
-                await queryInterface.bulkInsert('addresses', [{
-                    uuid: addressUuid,
+                const birthDate = moment().subtract(20 + i, 'years').add(i, 'months').add(i, 'days');
+                const ageDuration = moment.duration(moment().diff(birthDate));
+
+                await queryInterface.bulkInsert('birth_details', [{
+                    uuid: birthDetailUuid,
                     faskes_uuid: faskes.uuid,
-                    full_address: `Jl. Seeder No. ${i}`,
-                    village: `Kel. Cihampelas`,
-                    district: `Kec. Coblong`,
-                    city: `Kota Bandung`,
-                    prov: `Jawa Barat`,
-                    postal_code: `40131`,
-                    country: 'Indonesia',
+                    birth_place: birthPlaces[i % birthPlaces.length],
+                    birth_date: birthDate.format('YYYY-MM-DD'),
+                    age_year: ageDuration.years(),
+                    age_month: ageDuration.months(),
+                    age_day: ageDuration.days(),
                     created_at: moment().unix(),
                     updated_at: moment().unix(),
                 }], { transaction });
                 
-                // <<< PERUBAHAN 2: PILIH TEMPLATE SECARA BERGANTIAN >>>
+                // Buat data pasien (tidak berubah)
+                await queryInterface.bulkInsert('patients', [{
+                    uuid: patientUuid, faskes_uuid: faskes.uuid, no_rm: `SEEDER-${faskes.code}-00${i}`,
+                    name: `Pasien Seed ${i} ${faskes.code}`,
+                    gender: i % 2 === 0 ? 'Perempuan' : 'Laki-laki',
+                    phone: '08123456789',
+                    address_uuid: addressUuid,
+                    birth_detail_uuid: birthDetailUuid,
+                    religion: agamaList[i % agamaList.length], 
+                    status: true, identity: 'KTP', no_identity: `35260000000000${i}`,
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                }], { transaction });
+
+                await queryInterface.bulkInsert('addresses', [{
+                    uuid: addressUuid, faskes_uuid: faskes.uuid,
+                    full_address: `Jl. Seeder No. ${i}`,
+                    village: `Kel. Cihampelas`, district: `Kec. Coblong`,
+                    city: `Kota Bandung`, prov: `Jawa Barat`,
+                    rt: `00${i}`, rw: `00${i % 3 + 1}`,
+                    postal_code: `40131`, country: 'Indonesia',
+                    created_at: moment().unix(), updated_at: moment().unix(),
+                }], { transaction });
+                
                 const templateIndex = i % serviceTemplates.length;
                 const selectedService = serviceTemplates[templateIndex];
                 

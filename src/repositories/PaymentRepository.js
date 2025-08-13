@@ -280,7 +280,7 @@ export default class PaymentRepository {
     }
   }
 
-  static async getAllDetailBillItem(uuid) {
+  static async getDetailPasienBill(uuid) {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const bill = await db("bills as b")
@@ -304,23 +304,26 @@ export default class PaymentRepository {
           .select(
             "p.name as patient_name",
             "p.no_rm",
+            "p.gender",
             "p.no_identity",
-            "bd.birth_date",
+            "p.identity as identity_type",
+            "p.phone as no_handphone",
+            "p.religion as agama",
+            "bd.birth_date as tgl_lahir",
             "bd.age_year",
             "bd.age_month",
             "bd.age_day",
-            "a.prov",
-            "a.city",
-            "a.district",
-            "a.rt",
-            "a.rw",
-            "a.village",
-            "a.postal_code",
-            "a.country"
+            "a.full_address as alamat", 
+            "a.village as kelurahan_desa",
+            "a.district as kecamatan",
+            "a.city as kabupaten_kota",
+            "a.prov as provinsi",
+            "a.rt", "a.rw",
+            "a.postal_code as kodepos"
           )
           .first();
 
-        patient.external = false;
+        if (patient) patient.external = false;
       }
 
       const billDetail = await this.GetDetailBill(uuid);

@@ -33,6 +33,16 @@ export default class PaymentController {
         }
     }
 
+    static async getDetailPasienBill(req, res, next) {
+        try {
+            const uuid = req.params.uuid;
+            const result = await PaymentService.getDetailPasienBill(uuid);
+            return res.json(successResponse("Data berhasil ditampilkan", result));
+        } catch (error) {
+            next(error);
+        }
+    }
+
     static async applyVoucher(req, res, next) {
         try {
             const uuid = req.params.uuid;
