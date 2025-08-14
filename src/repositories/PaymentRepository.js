@@ -525,32 +525,47 @@ export default class PaymentRepository {
         .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
         .leftJoin('birth_details as bd', 'p.birth_detail_uuid', 'bd.uuid')
         .select(
-          'b.uuid',
-          'b.name as patient_name',
-          'b.invoice_code',
-          'b.bill_code',
-          'b.grand_total',
-          'b.patient_uuid',
-          'b.status as is_paid',
-          'a.full_address',
-          'p.phone as no_handphone',
-          'p.gender as jenis_kelamin',
-          'p.no_rm',
-          'bd.age_year',
-          'bd.age_month',
-          'bd.age_day',
+          'b.uuid', 'b.name as patient_name', 'b.invoice_code', 'b.bill_code',
+          'b.grand_total', 'b.patient_uuid', 'b.status as is_paid',
+          'a.full_address', 'p.phone as no_handphone', 'p.gender as jenis_kelamin',
+          'p.no_rm', 'bd.age_year', 'bd.age_month', 'bd.age_day',
+          // 1. Membuat field baru untuk detail keperawatan yang dinamis
           db.raw(`(
-            CASE 
-              WHEN 
-                EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true)
-                AND
-                NOT EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid AND ph.payment_type = 'CASH')
-              THEN 'ASURANSI'
-              ELSE 'TUNAI'
-            END
-        )as payment_type`),
-          db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
-          db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type`)
+              SELECT STRING_AGG(
+                  CASE
+                      -- Case 1 & 4: Rawat Jalan & APS
+                      WHEN sb.type = 'RJ' THEN CONCAT_WS(' | ', sb.practitioner_name, l_rj.name, TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'))
+                      -- Case 2: Rawat Inap
+                      WHEN sb.type = 'RI' THEN CONCAT_WS(' | ', sb.practitioner_name, l_ri.name, l_ri.no_room)
+                      -- Fallback untuk jenis lain (IGD, OTC, dll)
+                      ELSE sb.practitioner_name
+                  END, E'\\n'
+              ) 
+              FROM service_bill sb
+              LEFT JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+              LEFT JOIN lokasi l_rj ON rj.lokasi_uuid = l_rj.uuid
+              LEFT JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
+              LEFT JOIN lokasi l_ri ON ri.lokasi_uuid = l_ri.uuid
+              WHERE sb.bill_uuid = b.uuid
+          ) as care_details`),
+          // 2. Membuat field status kelengkapan data (Case 3)
+          db.raw(`(
+              CASE
+                  WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'IGD')
+                  THEN 'Data Tidak Lengkap'
+                  ELSE 'Data Lengkap'
+              END
+          ) as completeness_status`),
+          // 3. Mengambil jenis pembayaran (tidak berubah)
+          db.raw(`(
+              CASE 
+                  WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true) AND NOT EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid AND ph.payment_type = 'CASH')
+                  THEN 'ASURANSI' 
+                  ELSE 'TUNAI' 
+              END
+          ) as payment_type`),
+          // 4. Mengambil daftar tipe layanan (tidak berubah)
+          db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type_list`)
         )
         .where('b.faskes_uuid', faskesUuid)
         .where('b.close_bill', true);

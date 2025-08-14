@@ -10,7 +10,7 @@ const DBSeeder = async () => {
     try {
         console.log("Menghapus data seeder lama...");
 
-        // 1. Cari SEMUA pasien yang dibuat oleh seeder berdasarkan pola nama yang konsisten
+        // --- BAGIAN PEMBERSIHAN YANG AMAN DAN EFISIEN ---
         const patientsToDelete = await sequelizeInstance.query(
             `SELECT uuid, address_uuid, birth_detail_uuid FROM patients WHERE name LIKE 'Pasien Seed %'`,
             { type: 'SELECT', transaction }
@@ -18,14 +18,12 @@ const DBSeeder = async () => {
         const patientUuidsToDelete = patientsToDelete.map(p => p.uuid);
 
         if (patientUuidsToDelete.length > 0) {
-            // 2. Berdasarkan pasien tersebut, cari semua tagihan (bills) yang terkait
             const billsToDelete = await sequelizeInstance.query(
                 `SELECT uuid FROM bills WHERE patient_uuid IN (:patientUuids)`,
                 { replacements: { patientUuids: patientUuidsToDelete }, type: 'SELECT', transaction }
             );
             const billUuidsToDelete = billsToDelete.map(b => b.uuid);
 
-            // 3. Hapus semua data "cucu" dari tagihan
             if (billUuidsToDelete.length > 0) {
                 const serviceBillsToDelete = await sequelizeInstance.query(
                     `SELECT uuid FROM service_bill WHERE bill_uuid IN (:billUuids)`,
@@ -39,10 +37,8 @@ const DBSeeder = async () => {
                 await queryInterface.bulkDelete('payment_history', { bill_uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
             }
             
-            // 4. Hapus tagihannya
             await queryInterface.bulkDelete('bills', { uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
 
-            // 5. Hapus detail alamat dan kelahiran pasien
             const addressUuidsToDelete = patientsToDelete.map(p => p.address_uuid).filter(Boolean);
             if (addressUuidsToDelete.length > 0) {
                 await queryInterface.bulkDelete('addresses', { uuid: { [Op.in]: addressUuidsToDelete } }, { transaction });
@@ -53,12 +49,12 @@ const DBSeeder = async () => {
             }
         }
         
-        // 6. Terakhir, hapus pasiennya itu sendiri
         await queryInterface.bulkDelete('patients', { uuid: { [Op.in]: patientUuidsToDelete } }, { transaction });
-
-        // Hapus data master seeder
         await queryInterface.bulkDelete('voucher', { code: { [Op.like]: 'SEEDER-%' } }, { transaction });
         await queryInterface.bulkDelete('faskes_profiles', { code: { [Op.in]: ['AMBA', 'KSHA'] } }, { transaction });
+        await queryInterface.bulkDelete('lokasi', { name: { [Op.like]: 'SEEDER-%' } }, { transaction });
+        await queryInterface.bulkDelete('rawat_jalans', { no_reg: { [Op.like]: 'REG-RJ-%' } }, { transaction });
+        await queryInterface.bulkDelete('rawat_inaps', { no_reg: { [Op.like]: 'REG-RI-%' } }, { transaction });
 
         // --- AKHIR BAGIAN PEMBERSIHAN ---
 
@@ -69,13 +65,12 @@ const DBSeeder = async () => {
             { uuid: "01985e53-92d6-762c-ba36-9bc18ab4be3b", code: "KSHA", name: "Klinik Sehat" }
         ];
         
-        const faskesData = faskesList.map(faskes => ({
+        await queryInterface.bulkInsert('faskes_profiles', faskesList.map(faskes => ({
             uuid: uuidv7(), faskes_uuid: faskes.uuid, code: faskes.code, name: faskes.name,
             address_uuid: uuidv7(), phone: "021-1234567", email: `klinik@${faskes.code}.com`, website: `https://klinik-${faskes.code}.com`,
             url_gmaps: "https://goo.gl/maps/1234567", logo: "logo.png", bg_warna: "#FFFFFF", value_ppn: 11, status_ppn: true,
             status_biaya_lain: true, value_biaya_lain: 5000, created_at: moment().unix(), updated_at: moment().unix(),
-        }));
-        await queryInterface.bulkInsert('faskes_profiles', faskesData, { transaction });
+        })), { transaction });
 
         console.log("Memasukkan data voucher...");
         const vouchersToSeed = [];
@@ -100,17 +95,62 @@ const DBSeeder = async () => {
 
         const agamaList = ['Islam', 'Kristen Protestan', 'Kristen Katolik', 'Hindu', 'Buddha', 'Khonghucu'];
         const birthPlaces = ['Jakarta', 'Surabaya', 'Bandung', 'Medan', 'Makassar', 'Semarang'];
+        const complaintList = ['Demam tinggi', 'Batuk pilek', 'Sakit perut', 'Pusing kepala', 'Sesak napas', 'Nyeri sendi'];
+        const educationList = ['SD', 'SMP', 'SMA', 'D3', 'S1', 'S2'];
+        const alasanBatalList = ['Pasien tidak datang', 'Reschedule', 'Emergency lain', 'Kondisi membaik'];
         
         for (const faskes of faskesList) {
+            const poliUmumUuid = uuidv7();
+            const ruangMawarUuid = uuidv7();
+            const kategoriRuanganDummyUuid = uuidv7();
+            
+            await queryInterface.bulkInsert('lokasi', [
+                {   
+                    uuid: poliUmumUuid, 
+                    faskes_uuid: faskes.uuid, 
+                    code: 'POLI-UMUM', 
+                    name: 'SEEDER-Poli Umum',
+                    description: 'Poli Umum untuk seeder',
+                    phone: '100-001', 
+                    email: 'poli.umum@seeder.com', 
+                    url: 'url-poli-umum', 
+                    location_type: 'UNIT_PELAYANAN', 
+                    is_poli: true, 
+                    status: true, 
+                    pelayanan: 'RJ',
+                    no_room: 0, 
+                    kategori_ruangan_uuid: kategoriRuanganDummyUuid, 
+                    created_at: moment().unix(), 
+                    updated_at: moment().unix() 
+                },
+                {   
+                    uuid: ruangMawarUuid, 
+                    faskes_uuid: faskes.uuid, 
+                    code: 'R-MAWAR', 
+                    name: 'SEEDER-Ruang Mawar', 
+                    no_room: 102, 
+                    description: 'Ruang Mawar untuk seeder',
+                    phone: '100-002', 
+                    email: 'ruang.mawar@seeder.com', 
+                    url: 'url-ruang-mawar', 
+                    location_type: 'RUANG_PERAWATAN', 
+                    is_poli: false, 
+                    status: true, 
+                    pelayanan: 'RI',
+                    kategori_ruangan_uuid: kategoriRuanganDummyUuid, 
+                    created_at: moment().unix(), 
+                    updated_at: moment().unix() 
+                }
+            ], { transaction });
+
             for (let i = 1; i <= 10; i++) {
                 const patientUuid = uuidv7();
                 const billUuid = uuidv7();
                 const addressUuid = uuidv7();
                 const birthDetailUuid = uuidv7();
-
-                const randomNumberPhone = Math.floor(10000000 + Math.random() * 90000000);
-                const dynamicPhone = `0812${randomNumberPhone}`;
+                const serviceBillUuid = uuidv7();
                 
+                const dynamicPhone = `0812${Math.floor(10000000 + Math.random() * 90000000)}`;
                 const randomNumberRm = Math.floor(100000 + Math.random() * 900000);
                 const rmString = randomNumberRm.toString();
                 const formattedRm = `${rmString.substring(0, 2)}-${rmString.substring(2, 4)}-${rmString.substring(4, 6)}`;
@@ -150,8 +190,131 @@ const DBSeeder = async () => {
                 
                 const templateIndex = i % serviceTemplates.length;
                 const selectedService = serviceTemplates[templateIndex];
-                const serviceBillUuid = uuidv7();
                 
+                let admissionUuid = null;
+                if (selectedService.type === 'RJ') {
+                    admissionUuid = uuidv7();
+                    await queryInterface.bulkInsert('rawat_jalans', [{
+                        uuid: admissionUuid, 
+                        faskes_uuid: faskes.uuid,
+                        patient_uuid: patientUuid, 
+                        no_reg: `REG-RJ-${faskes.code}-${i}`,
+                        no_antrian_admisi: `ADM-${i.toString().padStart(3, '0')}`,
+                        no_antrian_poli: `POL-${i.toString().padStart(3, '0')}`,
+                        name: `Pasien Seed ${i} ${faskes.code}`,
+                        no_rm: formattedRm,
+                        birth_detail_uuid: birthDetailUuid,
+                        gender: i % 2 === 0 ? 'Perempuan' : 'Laki-laki',
+                        tanggal_daftar: moment().unix(),
+                        tanggal_periksa: moment().add(i, 'hours').unix(),
+                        practitioner_uuid: uuidv7(),
+                        maternity: i % 5 === 0 ? true : false,
+                        complaint: complaintList[i % complaintList.length],
+                        lokasi_uuid: poliUmumUuid,
+                        tanggal_checkin: moment().add(i + 1, 'hours').unix(),
+                        platform: 'WEB',
+                        kode_booking: `BOOK-${i.toString().padStart(4, '0')}`,
+                        alasan_batal: i % 8 === 0 ? alasanBatalList[i % alasanBatalList.length] : null,
+                        status_rj: i % 7 === 0 ? 0 : 1, // 0 = dibatalkan, 1 = aktif
+                        edukasi: educationList[i % educationList.length],
+                        edukasi_text: `Edukasi kesehatan untuk ${complaintList[i % complaintList.length]}`,
+                        prognosis: i % 3 === 0 ? 'Baik' : 'Cukup baik',
+                        kondisi_pasien_pulang: 'Stabil',
+                        status_pulang: 'Pulang atas persetujuan dokter',
+                        status_pulang_keterangan: 'Kondisi membaik',
+                        tujuan_rujuk: i % 6 === 0 ? 'RSUD Bandung' : null,
+                        tujuan_rujuk_lainnya: null,
+                        instruksi_no_darurat: 'Hubungi 119 jika emergency',
+                        transport_rujuk: i % 6 === 0 ? 'Ambulans' : null,
+                        transport_rujuk_lainnya: null,
+                        is_internal: true,
+                        rujuk_internal: null,
+                        rujuk_internal_text: null,
+                        rujuk_eksternal: null,
+                        instruksi_tindak_lanjut: 'Kontrol 1 minggu lagi',
+                        discharge_date: moment().add(2, 'hours').unix(),
+                        petugas: 'Perawat Seeder',
+                        rekam_medis_uuid: uuidv7(),
+                        lab_uuid: uuidv7(),
+                        farmasi_uuid: uuidv7(),
+                        jadwal_periksa: moment().add(i, 'hours').unix(),
+                        jadwal_dokter_uuid: uuidv7(),
+                        no_referensi: `REF-RJ-${i}`,
+                        no_pelayanan: `PEL-RJ-${i}`,
+                        status: true,
+                        payment_method: i % 2 === 0 ? 1 : 2,
+                        created_at: moment().unix(), 
+                        updated_at: moment().unix(),
+                    }], { transaction });
+                } else if (selectedService.type === 'RI') {
+                    admissionUuid = uuidv7();
+                    await queryInterface.bulkInsert('rawat_inaps', [{
+                        uuid: admissionUuid,
+                        faskes_uuid: faskes.uuid,
+                        payment_method: i % 2 === 0 ? 1 : 2,
+                        no_reg: `REG-RI-${faskes.code}-${i}`, 
+                        patient_uuid: patientUuid,
+                        name: `Pasien Seed ${i} ${faskes.code}`,
+                        no_rm: formattedRm,
+                        birth_detail_uuid: birthDetailUuid,
+                        gender: i % 2 === 0 ? 'Perempuan' : 'Laki-laki',
+                        practitioner_uuid: uuidv7(),
+                        tanggal_daftar: moment().unix(),
+                        tanggal_dirawat: moment().unix(),
+                        maternity: i % 7 === 0 ? true : false,
+                        multiple_birth: i % 10 === 0 ? true : false,
+                        entrusted_patient: i % 8 === 0 ? true : false,
+                        upgrade_class: i % 6 === 0 ? true : false,
+                        join_bill: i % 9 === 0 ? true : false,
+                        previous_bill: i % 11 === 0 ? true : false,
+                        family_bill: i % 12 === 0 ? true : false,
+                        spare_bed: i % 13 === 0 ? true : false,
+                        box_baby: i % 14 === 0 ? true : false,
+                        note: `Catatan untuk pasien rawat inap ${i}`,
+                        complaint: complaintList[i % complaintList.length],
+                        monitoring_room_uuid: uuidv7(),
+                        lokasi_uuid: ruangMawarUuid,
+                        alasan_batal: i % 15 === 0 ? alasanBatalList[i % alasanBatalList.length] : null,
+                        status_ri: i % 16 === 0 ? 0 : 1, // 0 = dibatalkan, 1 = aktif
+                        encounter: 'RI',
+                        edukasi: educationList[i % educationList.length],
+                        edukasi_text: `Edukasi rawat inap untuk ${complaintList[i % complaintList.length]}`,
+                        kondisi_pasien_pulang: 'Stabil dan membaik',
+                        status_pulang: 'Pulang atas persetujuan dokter',
+                        status_pulang_keterangan: 'Pasien sudah stabil dan dapat rawat jalan',
+                        tujuan_rujuk: i % 5 === 0 ? 'RSUD Bandung' : null,
+                        tujuan_rujuk_lainnya: null,
+                        instruksi_no_darurat: 'Hubungi 119 atau IGD terdekat',
+                        transport_rujuk: i % 5 === 0 ? 'Ambulans' : null,
+                        transport_rujuk_lainnya: null,
+                        is_internal: true,
+                        rujuk_internal: null,
+                        rujuk_internal_text: null,
+                        rujuk_eksternal: null,
+                        instruksi_tindak_lanjut: 'Kontrol poliklinik 2 minggu setelah pulang',
+                        discharge_date: i % 3 === 0 ? moment().add(3, 'days').unix() : null,
+                        petugas: `Perawat Seeder ${i}`,
+                        rekam_medis_uuid: uuidv7(),
+                        lab_uuid: uuidv7(),
+                        farmasi_uuid: uuidv7(),
+                        no_spri: `SPRI-RI-${i}`,
+                        no_pelayanan: `PEL-RI-${i}`,
+                        status: true,
+                        created_at: moment().unix(),
+                        updated_at: moment().unix(),
+                    }], { transaction });
+                }
+                
+                await queryInterface.bulkInsert('service_bill', [{
+                    uuid: serviceBillUuid, bill_uuid: billUuid, faskes_uuid: faskes.uuid,
+                    type: selectedService.type, 
+                    practitioner_name: selectedService.practitioner, 
+                    service_name: selectedService.serviceName, 
+                    with_insurance: selectedService.with_insurance, 
+                    layanan_uuid: admissionUuid,
+                    date: moment().unix(), created_at: moment().unix(), updated_at: moment().unix(),
+                }], { transaction });
+
                 const billItems = selectedService.items.map(item => ({
                     uuid: uuidv7(), service_bill_uuid: serviceBillUuid, faskes_uuid: faskes.uuid,
                     item_name: item.item_name, qty: 1, price: item.price, price_item: item.price,
@@ -172,21 +335,12 @@ const DBSeeder = async () => {
                     created_at: moment().unix(), updated_at: moment().unix(),
                 }], { transaction });
 
-                await queryInterface.bulkInsert('service_bill', [{
-                    uuid: serviceBillUuid, bill_uuid: billUuid, faskes_uuid: faskes.uuid,
-                    type: selectedService.type, 
-                    practitioner_name: selectedService.practitioner, 
-                    service_name: selectedService.serviceName, 
-                    with_insurance: selectedService.with_insurance, 
-                    date: moment().unix(), created_at: moment().unix(), updated_at: moment().unix(),
-                }], { transaction });
-
                 await queryInterface.bulkInsert('bill_item', billItems, { transaction });
             }
         }
 
         await transaction.commit();
-        console.log('Seeding data bervariasi untuk 2 faskes berhasil!');
+        console.log('Seeding data lengkap untuk rawat inap dan rawat jalan berhasil!');
     } catch (error) {
         await transaction.rollback();
         console.error('Terjadi error saat seeding:', error);
