@@ -453,28 +453,61 @@ export default class PaymentRepository {
   static async GetPaymentHistory(bill_uuid) {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
+        
+      // 1. Ambil total tagihan (grand_total) terlebih dahulu
       const bill = await this.GetTotalBill(bill_uuid);
+      if (!bill) throw new NotfoundException("Tagihan tidak ditemukan");
+      const totalBill = parseFloat(bill.grand_total) || 0;
+
+      // 2. Ambil semua riwayat pembayaran, diurutkan dari yang paling lama
       const history = await db("payment_history as ph")
         .leftJoin("cashier_report as cr", "ph.kasir_uuid", "cr.uuid")
-        .select("ph.payment_type", "ph.payment_method", "ph.information", "ph.note", "ph.amount", "ph.created_at", "cr.nama_kasir", "cr.shift_type")
+        .select(
+          "ph.payment_type", "ph.payment_method", "ph.information", 
+          "ph.note", "ph.amount", "ph.created_at", 
+          "cr.nama_kasir", "cr.shift_type"
+        )
         .where("ph.bill_uuid", bill_uuid)
-        .where("ph.faskes_uuid", faskesUuid);
-      const totalPaid = history.reduce((acc, row) => {
-        acc += row.amount;
-        return acc;
-      }, 0);
-      const totalBill = bill.grand_total;
+        .where("ph.faskes_uuid", faskesUuid)
+        .orderBy('ph.created_at', 'asc'); 
+
+      // 3. Proses riwayat untuk menambahkan kalkulasi hutang berjalan
+      let cumulativePaid = 0;
+      const enrichedHistory = history.map(payment => {
+        const amountPaid = parseFloat(payment.amount) || 0;
+            
+        // Hitung hutang SEBELUM pembayaran ini ditambahkan
+        const debt_before = totalBill - cumulativePaid;
+            
+        // Tambahkan pembayaran ini ke total kumulatif
+        cumulativePaid += amountPaid;
+            
+        // Hitung hutang SETELAH pembayaran ini ditambahkan
+        const debt_after = totalBill - cumulativePaid;
+
+        return {
+          ...payment,
+          debt_before: debt_before,
+          debt_after: debt_after
+          };
+      });
+
+      const totalPaid = cumulativePaid;
+      const finalDebt = totalBill - totalPaid;
+
+      // 4. Kembalikan data yang sudah diperkaya
       return {
         total_paid: totalPaid,
         total_bill: totalBill,
         is_paid: totalPaid >= totalBill,
-        debt: totalBill - totalPaid,
-        payment_history: [...history],
+        debt: finalDebt > 0 ? finalDebt : 0,
+        payment_history: enrichedHistory, 
       };
     } catch (error) {
-      throw error;
+        throw error;
     }
-  }
+}
+
 
   static async getClosedBill(params) {
     try {
