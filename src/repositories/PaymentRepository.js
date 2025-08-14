@@ -490,6 +490,7 @@ export default class PaymentRepository {
       const query = db('bills as b')
         .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
         .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
+        .leftJoin('birth_details as bd', 'p.birth_detail_uuid', 'bd.uuid')
         .select(
           'b.uuid',
           'b.name as patient_name',
@@ -502,6 +503,9 @@ export default class PaymentRepository {
           'p.phone as no_handphone',
           'p.gender as jenis_kelamin',
           'p.no_rm',
+          'bd.age_year',
+          'bd.age_month',
+          'bd.age_day',
           db.raw(`(
             CASE 
               WHEN 

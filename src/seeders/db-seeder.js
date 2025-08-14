@@ -9,28 +9,23 @@ const DBSeeder = async () => {
 
     try {
         console.log("Menghapus data seeder lama...");
-        // --- Bagian PENGHAPUSAN DATA ---
-        const billsToDelete = await sequelizeInstance.query(
-            `SELECT uuid FROM bills WHERE name LIKE 'Pasien Seed %' OR name LIKE 'Pasien Seeder %'`,
-            { type: 'SELECT', transaction }
-        );
 
+        // 1. Cari SEMUA pasien yang dibuat oleh seeder berdasarkan pola nama yang konsisten
         const patientsToDelete = await sequelizeInstance.query(
-            `SELECT uuid, address_uuid, birth_detail_uuid FROM patients WHERE no_rm LIKE 'SEEDER-%' OR no_rm LIKE '__-__-__'`,
+            `SELECT uuid, address_uuid, birth_detail_uuid FROM patients WHERE name LIKE 'Pasien Seed %'`,
             { type: 'SELECT', transaction }
         );
-
         const patientUuidsToDelete = patientsToDelete.map(p => p.uuid);
 
         if (patientUuidsToDelete.length > 0) {
-            // 2. Cari semua tagihan (bills) yang terkait dengan pasien tersebut
+            // 2. Berdasarkan pasien tersebut, cari semua tagihan (bills) yang terkait
             const billsToDelete = await sequelizeInstance.query(
                 `SELECT uuid FROM bills WHERE patient_uuid IN (:patientUuids)`,
                 { replacements: { patientUuids: patientUuidsToDelete }, type: 'SELECT', transaction }
             );
             const billUuidsToDelete = billsToDelete.map(b => b.uuid);
 
-            // 3. Hapus semua data "anak" dari tagihan (service_bill, bill_item, payment_history)
+            // 3. Hapus semua data "cucu" dari tagihan
             if (billUuidsToDelete.length > 0) {
                 const serviceBillsToDelete = await sequelizeInstance.query(
                     `SELECT uuid FROM service_bill WHERE bill_uuid IN (:billUuids)`,
@@ -45,7 +40,7 @@ const DBSeeder = async () => {
             }
             
             // 4. Hapus tagihannya
-            await queryInterface.bulkDelete('bills', { patient_uuid: { [Op.in]: patientUuidsToDelete } }, { transaction });
+            await queryInterface.bulkDelete('bills', { uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
 
             // 5. Hapus detail alamat dan kelahiran pasien
             const addressUuidsToDelete = patientsToDelete.map(p => p.address_uuid).filter(Boolean);
@@ -57,26 +52,15 @@ const DBSeeder = async () => {
                 await queryInterface.bulkDelete('birth_details', { uuid: { [Op.in]: birthDetailUuidsToDelete } }, { transaction });
             }
         }
+        
+        // 6. Terakhir, hapus pasiennya itu sendiri
+        await queryInterface.bulkDelete('patients', { uuid: { [Op.in]: patientUuidsToDelete } }, { transaction });
 
-
-
-        const billUuidsToDelete = billsToDelete.map(b => b.uuid);
-        if (billUuidsToDelete.length > 0) {
-            const serviceBillsToDelete = await sequelizeInstance.query(
-                `SELECT uuid FROM service_bill WHERE bill_uuid IN (:billUuids)`,
-                { replacements: { billUuids: billUuidsToDelete }, type: 'SELECT', transaction }
-            );
-            const serviceBillUuidsToDelete = serviceBillsToDelete.map(sb => sb.uuid);
-            if (serviceBillUuidsToDelete.length > 0) {
-                await queryInterface.bulkDelete('bill_item', { service_bill_uuid: { [Op.in]: serviceBillUuidsToDelete } }, { transaction });
-            }
-            await queryInterface.bulkDelete('service_bill', { bill_uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
-            await queryInterface.bulkDelete('payment_history', { bill_uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
-        }
-        await queryInterface.bulkDelete('bills', { name: { [Op.or]: [{ [Op.like]: 'Pasien Seed %' }, { [Op.like]: 'Pasien Seeder %' }] } }, { transaction });
-        await queryInterface.bulkDelete('patients', { no_rm: { [Op.or]: [{ [Op.like]: 'SEEDER-%' }, { [Op.like]: '__-__-__' }] } }, { transaction });
+        // Hapus data master seeder
         await queryInterface.bulkDelete('voucher', { code: { [Op.like]: 'SEEDER-%' } }, { transaction });
         await queryInterface.bulkDelete('faskes_profiles', { code: { [Op.in]: ['AMBA', 'KSHA'] } }, { transaction });
+
+        // --- AKHIR BAGIAN PEMBERSIHAN ---
 
         console.log("Memasukkan data baru...");
 
@@ -92,87 +76,31 @@ const DBSeeder = async () => {
             status_biaya_lain: true, value_biaya_lain: 5000, created_at: moment().unix(), updated_at: moment().unix(),
         }));
         await queryInterface.bulkInsert('faskes_profiles', faskesData, { transaction });
+
         console.log("Memasukkan data voucher...");
         const vouchersToSeed = [];
         for (const faskes of faskesList) {
             vouchersToSeed.push(
-                {
-                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-OK-${faskes.code}`,
-                    name: 'Voucher Diskon 10 Persen', type: 'persentase', value: 10, qty: 100,
-                    status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                },
-                {
-                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BESAR-${faskes.code}`,
-                    name: 'Voucher Potongan 300rb', type: 'potongan', value: 300000, qty: 5,
-                    status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                },
-                {
-                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-LAMA-${faskes.code}`,
-                    name: 'Voucher Sudah Lewat', type: 'persentase', value: 20, qty: 100,
-                    status: true, start_date: moment().subtract(1, 'month').unix(), end_date: moment().subtract(1, 'day').unix(),
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                },
-                {
-                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BARU-${faskes.code}`,
-                    name: 'Voucher Akan Datang', type: 'persentase', value: 15, qty: 100,
-                    status: true, start_date: moment().add(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                },
-                {
-                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-NONAKTIF-${faskes.code}`,
-                    name: 'Voucher Tidak Aktif', type: 'potongan', value: 25000, qty: 100,
-                    status: false, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                },
-                {
-                    uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-HABIS-${faskes.code}`,
-                    name: 'Voucher Stok Terbatas', type: 'potongan', value: 10000, qty: 0,
-                    status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(),
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                }
+                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-OK-${faskes.code}`, name: 'Voucher Diskon 10 Persen', type: 'persentase', value: 10, qty: 100, status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
+                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BESAR-${faskes.code}`, name: 'Voucher Potongan 300rb', type: 'potongan', value: 300000, qty: 5, status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
+                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-LAMA-${faskes.code}`, name: 'Voucher Sudah Lewat', type: 'persentase', value: 20, qty: 100, status: true, start_date: moment().subtract(1, 'month').unix(), end_date: moment().subtract(1, 'day').unix(), created_at: moment().unix(), updated_at: moment().unix() },
+                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BARU-${faskes.code}`, name: 'Voucher Akan Datang', type: 'persentase', value: 15, qty: 100, status: true, start_date: moment().add(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
+                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-NONAKTIF-${faskes.code}`, name: 'Voucher Tidak Aktif', type: 'potongan', value: 25000, qty: 100, status: false, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
+                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-HABIS-${faskes.code}`, name: 'Voucher Stok Terbatas', type: 'potongan', value: 10000, qty: 0, status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() }
             );
         }
         await queryInterface.bulkInsert('voucher', vouchersToSeed, { transaction });
 
-        // <<< PERUBAHAN 1: DEFINISIKAN TEMPLATE LAYANAN DI SINI >>>
         const serviceTemplates = [
-            {
-                type: 'RJ', practitioner: 'Dr. Budi (Poli Umum)', serviceName: 'Konsultasi Rawat Jalan', with_insurance: false,
-                items: [
-                    { item_name: 'Jasa Konsultasi RJ', price: 150000, category_code: '1' },
-                    { item_name: 'Obat Paracetamol', price: 25000, category_code: '2' }
-                ]
-            },
-            {
-                type: 'RI', practitioner: 'Dr. Siti (Spesialis Anak)', serviceName: 'Perawatan Rawat Inap Anak', with_insurance: true,
-                items: [
-                    { item_name: 'Sewa Kamar Kelas 1 (per hari)', price: 750000, category_code: '4' },
-                    { item_name: 'Infus Set', price: 120000, category_code: '3' },
-                    { item_name: 'Jasa Visite Dokter', price: 250000, category_code: '1' }
-                ]
-            },
-            {
-                type: 'IGD', practitioner: 'Dr. Eka (Dokter Jaga)', serviceName: 'Tindakan Gawat Darurat', with_insurance: false,
-                items: [
-                    { item_name: 'Tindakan Hecting', price: 300000, category_code: '1' },
-                    { item_name: 'Obat Anti-Tetanus', price: 175000, category_code: '2' }
-                ]
-            },
-            {
-                type: 'OTC', practitioner: 'Apoteker Ana', serviceName: 'Pembelian Obat Bebas', with_insurance: true,
-                items: [
-                    { item_name: 'Vitamin C 500mg', price: 55000, category_code: '2' },
-                    { item_name: 'Plester Luka', price: 15000, category_code: '3' }
-                ]
-            }
+            { type: 'RJ', practitioner: 'Dr. Budi (Poli Umum)', serviceName: 'Konsultasi Rawat Jalan', with_insurance: false, items: [{ item_name: 'Jasa Konsultasi RJ', price: 150000, category_code: '1' }, { item_name: 'Obat Paracetamol', price: 25000, category_code: '2' }] },
+            { type: 'RI', practitioner: 'Dr. Siti (Spesialis Anak)', serviceName: 'Perawatan Rawat Inap Anak', with_insurance: true, items: [{ item_name: 'Sewa Kamar Kelas 1 (per hari)', price: 750000, category_code: '4' }, { item_name: 'Infus Set', price: 120000, category_code: '3' }, { item_name: 'Jasa Visite Dokter', price: 250000, category_code: '1' }] },
+            { type: 'IGD', practitioner: 'Dr. Eka (Dokter Jaga)', serviceName: 'Tindakan Gawat Darurat', with_insurance: false, items: [{ item_name: 'Tindakan Hecting', price: 300000, category_code: '1' }, { item_name: 'Obat Anti-Tetanus', price: 175000, category_code: '2' }] },
+            { type: 'OTC', practitioner: 'Apoteker Ana', serviceName: 'Pembelian Obat Bebas', with_insurance: true, items: [{ item_name: 'Vitamin C 500mg', price: 55000, category_code: '2' }, { item_name: 'Plester Luka', price: 15000, category_code: '3' }] }
         ];
 
-        const agamaList = ['Islam', 'Kristen Protestan', 'Kristen Katolik', 'Hindu', 'Buddha', 'Lain-lain'];
-        const birthPlaces = ['Pasuruan', 'Sidoarjo', 'Bangkalan', 'Kediri', 'Merbabu', 'Rinjani'];
+        const agamaList = ['Islam', 'Kristen Protestan', 'Kristen Katolik', 'Hindu', 'Buddha', 'Khonghucu'];
+        const birthPlaces = ['Jakarta', 'Surabaya', 'Bandung', 'Medan', 'Makassar', 'Semarang'];
         
-        // Buat 10 Pasien & Tagihan untuk SETIAP Faskes
         for (const faskes of faskesList) {
             for (let i = 1; i <= 10; i++) {
                 const patientUuid = uuidv7();
@@ -180,29 +108,26 @@ const DBSeeder = async () => {
                 const addressUuid = uuidv7();
                 const birthDetailUuid = uuidv7();
 
-                const randomNumber = Math.floor(10000000 + Math.random() * 90000000);
-                const dynamicPhone = `0812${randomNumber}`;
-                const rmNumberString = i.toString().padStart(6, '0');
-                const formattedRm = `${rmNumberString.substring(0, 2)}-${rmNumberString.substring(2, 4)}-${rmNumberString.substring(4, 6)}`;
+                const randomNumberPhone = Math.floor(10000000 + Math.random() * 90000000);
+                const dynamicPhone = `0812${randomNumberPhone}`;
+                
+                const randomNumberRm = Math.floor(100000 + Math.random() * 900000);
+                const rmString = randomNumberRm.toString();
+                const formattedRm = `${rmString.substring(0, 2)}-${rmString.substring(2, 4)}-${rmString.substring(4, 6)}`;
+                
                 const birthDate = moment().subtract(20 + i, 'years').add(i, 'months').add(i, 'days');
                 const ageDuration = moment.duration(moment().diff(birthDate));
 
                 await queryInterface.bulkInsert('birth_details', [{
-                    uuid: birthDetailUuid,
-                    faskes_uuid: faskes.uuid,
+                    uuid: birthDetailUuid, faskes_uuid: faskes.uuid,
                     birth_place: birthPlaces[i % birthPlaces.length],
                     birth_date: birthDate.format('YYYY-MM-DD'),
-                    age_year: ageDuration.years(),
-                    age_month: ageDuration.months(),
-                    age_day: ageDuration.days(),
-                    created_at: moment().unix(),
-                    updated_at: moment().unix(),
+                    age_year: ageDuration.years(), age_month: ageDuration.months(), age_day: ageDuration.days(),
+                    created_at: moment().unix(), updated_at: moment().unix(),
                 }], { transaction });
                 
-                // Buat data pasien (tidak berubah)
                 await queryInterface.bulkInsert('patients', [{
-                    uuid: patientUuid, faskes_uuid: faskes.uuid, 
-                    no_rm: formattedRm,
+                    uuid: patientUuid, faskes_uuid: faskes.uuid, no_rm: formattedRm,
                     name: `Pasien Seed ${i} ${faskes.code}`,
                     gender: i % 2 === 0 ? 'Perempuan' : 'Laki-laki',
                     phone: dynamicPhone,
@@ -225,10 +150,8 @@ const DBSeeder = async () => {
                 
                 const templateIndex = i % serviceTemplates.length;
                 const selectedService = serviceTemplates[templateIndex];
-                
                 const serviceBillUuid = uuidv7();
                 
-                // Buat item tagihan berdasarkan template yang dipilih
                 const billItems = selectedService.items.map(item => ({
                     uuid: uuidv7(), service_bill_uuid: serviceBillUuid, faskes_uuid: faskes.uuid,
                     item_name: item.item_name, qty: 1, price: item.price, price_item: item.price,
@@ -236,13 +159,11 @@ const DBSeeder = async () => {
                     date_used: moment().unix(), created_at: moment().unix(), updated_at: moment().unix()
                 }));
 
-                // Hitung total (tidak berubah, karena sudah dinamis)
                 const subTotal = billItems.reduce((acc, item) => acc + item.price, 0);
                 const adminFee = 5000;
                 const ppn = subTotal * 0.11;
                 const grandTotal = subTotal + ppn + adminFee;
 
-                // Masukkan data bills (tidak berubah)
                 await queryInterface.bulkInsert('bills', [{
                     uuid: billUuid, faskes_uuid: faskes.uuid, patient_uuid: patientUuid, name: `Pasien Seed ${i} ${faskes.code}`,
                     invoice_code: `INV-${faskes.code}-00${i}`, bill_code: `BILL-${faskes.code}-00${i}`, status: false,
@@ -251,7 +172,6 @@ const DBSeeder = async () => {
                     created_at: moment().unix(), updated_at: moment().unix(),
                 }], { transaction });
 
-                // Masukkan data service_bill berdasarkan template
                 await queryInterface.bulkInsert('service_bill', [{
                     uuid: serviceBillUuid, bill_uuid: billUuid, faskes_uuid: faskes.uuid,
                     type: selectedService.type, 
@@ -261,7 +181,6 @@ const DBSeeder = async () => {
                     date: moment().unix(), created_at: moment().unix(), updated_at: moment().unix(),
                 }], { transaction });
 
-                // Masukkan data bill_item yang sudah dinamis
                 await queryInterface.bulkInsert('bill_item', billItems, { transaction });
             }
         }
