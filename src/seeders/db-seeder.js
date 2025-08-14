@@ -14,6 +14,52 @@ const DBSeeder = async () => {
             `SELECT uuid FROM bills WHERE name LIKE 'Pasien Seed %' OR name LIKE 'Pasien Seeder %'`,
             { type: 'SELECT', transaction }
         );
+
+        const patientsToDelete = await sequelizeInstance.query(
+            `SELECT uuid, address_uuid, birth_detail_uuid FROM patients WHERE no_rm LIKE 'SEEDER-%' OR no_rm LIKE '__-__-__'`,
+            { type: 'SELECT', transaction }
+        );
+
+        const patientUuidsToDelete = patientsToDelete.map(p => p.uuid);
+
+        if (patientUuidsToDelete.length > 0) {
+            // 2. Cari semua tagihan (bills) yang terkait dengan pasien tersebut
+            const billsToDelete = await sequelizeInstance.query(
+                `SELECT uuid FROM bills WHERE patient_uuid IN (:patientUuids)`,
+                { replacements: { patientUuids: patientUuidsToDelete }, type: 'SELECT', transaction }
+            );
+            const billUuidsToDelete = billsToDelete.map(b => b.uuid);
+
+            // 3. Hapus semua data "anak" dari tagihan (service_bill, bill_item, payment_history)
+            if (billUuidsToDelete.length > 0) {
+                const serviceBillsToDelete = await sequelizeInstance.query(
+                    `SELECT uuid FROM service_bill WHERE bill_uuid IN (:billUuids)`,
+                    { replacements: { billUuids: billUuidsToDelete }, type: 'SELECT', transaction }
+                );
+                const serviceBillUuidsToDelete = serviceBillsToDelete.map(sb => sb.uuid);
+                if (serviceBillUuidsToDelete.length > 0) {
+                    await queryInterface.bulkDelete('bill_item', { service_bill_uuid: { [Op.in]: serviceBillUuidsToDelete } }, { transaction });
+                }
+                await queryInterface.bulkDelete('service_bill', { bill_uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
+                await queryInterface.bulkDelete('payment_history', { bill_uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
+            }
+            
+            // 4. Hapus tagihannya
+            await queryInterface.bulkDelete('bills', { patient_uuid: { [Op.in]: patientUuidsToDelete } }, { transaction });
+
+            // 5. Hapus detail alamat dan kelahiran pasien
+            const addressUuidsToDelete = patientsToDelete.map(p => p.address_uuid).filter(Boolean);
+            if (addressUuidsToDelete.length > 0) {
+                await queryInterface.bulkDelete('addresses', { uuid: { [Op.in]: addressUuidsToDelete } }, { transaction });
+            }
+            const birthDetailUuidsToDelete = patientsToDelete.map(p => p.birth_detail_uuid).filter(Boolean);
+            if (birthDetailUuidsToDelete.length > 0) {
+                await queryInterface.bulkDelete('birth_details', { uuid: { [Op.in]: birthDetailUuidsToDelete } }, { transaction });
+            }
+        }
+
+
+
         const billUuidsToDelete = billsToDelete.map(b => b.uuid);
         if (billUuidsToDelete.length > 0) {
             const serviceBillsToDelete = await sequelizeInstance.query(
@@ -28,7 +74,7 @@ const DBSeeder = async () => {
             await queryInterface.bulkDelete('payment_history', { bill_uuid: { [Op.in]: billUuidsToDelete } }, { transaction });
         }
         await queryInterface.bulkDelete('bills', { name: { [Op.or]: [{ [Op.like]: 'Pasien Seed %' }, { [Op.like]: 'Pasien Seeder %' }] } }, { transaction });
-        await queryInterface.bulkDelete('patients', { no_rm: { [Op.like]: 'SEEDER-%' } }, { transaction });
+        await queryInterface.bulkDelete('patients', { no_rm: { [Op.or]: [{ [Op.like]: 'SEEDER-%' }, { [Op.like]: '__-__-__' }] } }, { transaction });
         await queryInterface.bulkDelete('voucher', { code: { [Op.like]: 'SEEDER-%' } }, { transaction });
         await queryInterface.bulkDelete('faskes_profiles', { code: { [Op.in]: ['AMBA', 'KSHA'] } }, { transaction });
 
@@ -134,6 +180,10 @@ const DBSeeder = async () => {
                 const addressUuid = uuidv7();
                 const birthDetailUuid = uuidv7();
 
+                const randomNumber = Math.floor(10000000 + Math.random() * 90000000);
+                const dynamicPhone = `0812${randomNumber}`;
+                const rmNumberString = i.toString().padStart(6, '0');
+                const formattedRm = `${rmNumberString.substring(0, 2)}-${rmNumberString.substring(2, 4)}-${rmNumberString.substring(4, 6)}`;
                 const birthDate = moment().subtract(20 + i, 'years').add(i, 'months').add(i, 'days');
                 const ageDuration = moment.duration(moment().diff(birthDate));
 
@@ -151,10 +201,11 @@ const DBSeeder = async () => {
                 
                 // Buat data pasien (tidak berubah)
                 await queryInterface.bulkInsert('patients', [{
-                    uuid: patientUuid, faskes_uuid: faskes.uuid, no_rm: `SEEDER-${faskes.code}-00${i}`,
+                    uuid: patientUuid, faskes_uuid: faskes.uuid, 
+                    no_rm: formattedRm,
                     name: `Pasien Seed ${i} ${faskes.code}`,
                     gender: i % 2 === 0 ? 'Perempuan' : 'Laki-laki',
-                    phone: '08123456789',
+                    phone: dynamicPhone,
                     address_uuid: addressUuid,
                     birth_detail_uuid: birthDetailUuid,
                     religion: agamaList[i % agamaList.length], 

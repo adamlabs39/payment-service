@@ -147,6 +147,7 @@ export default class PaymentRepository {
           'b.patient_uuid',
           'b.grand_total', 
           'b.status as is_paid',
+          'p.no_rm',
           db.raw(`(CASE WHEN b.status = true THEN 'LUNAS' ELSE 'PIUTANG' END) as payment_status`),
         )
         .where('b.faskes_uuid', faskesUuid)
@@ -293,16 +294,15 @@ export default class PaymentRepository {
 
       if (!bill) throw new NotfoundException("Bill not found");
 
-      let patient = {
-        external: true,
-        patient_name: bill.patient_name,
-      };
+      let patient = bill.patient_name;
+      
 
       if (bill.patient_uuid) {
         patient = await db("patients as p")
           .where("p.uuid", bill.patient_uuid)
           .leftJoin("birth_details as bd", "p.birth_detail_uuid", "bd.uuid")
           .leftJoin("addresses as a", "p.address_uuid", "a.uuid")
+          .leftJoin("bills as b", "b.patient_uuid", "p.uuid")
           .select(
             "p.name as patient_name",
             "p.no_rm",
@@ -321,11 +321,17 @@ export default class PaymentRepository {
             "a.city as kabupaten_kota",
             "a.prov as provinsi",
             "a.rt", "a.rw",
-            "a.postal_code as kodepos"
+            "a.postal_code as kodepos",
+            "b.status as is_paid",
+            db.raw(`(
+              CASE
+                  WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = ? AND sb.with_insurance = true)
+                  THEN 'ASURANSI'
+                  ELSE 'TUNAI'
+              END
+            ) as payment_type`, [uuid])
           )
           .first();
-
-        if (patient) patient.external = false;
       }
 
       const billDetail = await this.GetDetailBill(uuid);
@@ -435,6 +441,7 @@ export default class PaymentRepository {
       await db.transaction(async (trx) => {
         await trx("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).update({
           close_bill: true,
+          updated_at: moment().unix()
         });
       });
       return true;
@@ -473,15 +480,11 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
 
-      const filterChip = {
+      const serviceTypeMap = {
         IGD: ["IGD"],
         RI: ["RI"],
         RJ: ["RJ"],
         APS: ["OTC", "LAB", "FISIO"],
-      };
-
-      const convertPayment = (paymentMethod) => {
-        return paymentMethod === 'ASURANSI';
       };
 
       const query = db('bills as b')
@@ -496,6 +499,9 @@ export default class PaymentRepository {
           'b.patient_uuid',
           'b.status as is_paid',
           'a.full_address',
+          'p.phone as no_handphone',
+          'p.gender as jenis_kelamin',
+          'p.no_rm',
           db.raw(`(
             CASE 
               WHEN 
@@ -544,16 +550,27 @@ export default class PaymentRepository {
       }
 
       if (params.start_date && params.end_date) {
-        query.whereBetween('b.updated_at', [params.start_date, params.end_date]);
+        query.whereBetween('b.updated_at', [
+            moment.unix(params.start_date).startOf('day').unix(),
+            moment.unix(params.end_date).endOf('day').unix()
+        ]);
       }
 
-      if (params.service_type && filterChip[params.service_type.toUpperCase()]) {
-        query.whereExists(function() {
-            this.select(1)
+      if (params.service_type) {
+        const selectedFilters = [].concat(params.service_type);
+        const dbServiceTypes = selectedFilters
+          .map(type => serviceTypeMap[type.toUpperCase()])
+          .filter(Boolean)
+          .flat();
+
+          if (dbServiceTypes.length > 0) {
+            query.whereExists(function() {
+              this.select(1)
                 .from('service_bill as sb')
                 .whereRaw('sb.bill_uuid = b.uuid')
-                .whereIn('sb.type', filterChip[params.service_type.toUpperCase()]);
-        });
+                .whereIn('sb.type', dbServiceTypes); 
+            });
+          }
       }
 
       if (params.payment_type) {
@@ -576,6 +593,7 @@ export default class PaymentRepository {
           });
         }
       }
+
       query.orderBy('b.updated_at', 'desc');
       return await KnexPagination.init(query, params);
     } catch (error) {
@@ -587,7 +605,7 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       
-      const serviceTypeMap  = {
+      const serviceTypeMap = {
         APS: ['OTC', 'LAB', 'FISIO'],
         OTC: ['OTC'],
       }

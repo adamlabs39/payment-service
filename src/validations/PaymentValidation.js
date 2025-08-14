@@ -82,7 +82,10 @@ export default class PaymentValidation{
             .regex(/^\d+$/, { message: "end_date must be a Unix timestamp string" })
             .transform(Number)
             .optional(),
-        service_type: z.string().optional(),
+        service_type: z.union([
+            z.string(),
+            z.array(z.string())
+        ]).optional(),
         payment_type: z.enum(['TUNAI', 'ASURANSI']).optional(),
     });
 }
