@@ -530,24 +530,41 @@ export default class PaymentRepository {
           'a.full_address', 'p.phone as no_handphone', 'p.gender as jenis_kelamin',
           'p.no_rm', 'bd.age_year', 'bd.age_month', 'bd.age_day',
           // 1. Membuat field baru untuk detail keperawatan yang dinamis
+          db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
+
           db.raw(`(
-              SELECT STRING_AGG(
-                  CASE
-                      -- Case 1 & 4: Rawat Jalan & APS
-                      WHEN sb.type = 'RJ' THEN CONCAT_WS(' | ', sb.practitioner_name, l_rj.name, TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'))
-                      -- Case 2: Rawat Inap
-                      WHEN sb.type = 'RI' THEN CONCAT_WS(' | ', sb.practitioner_name, l_ri.name, l_ri.no_room)
-                      -- Fallback untuk jenis lain (IGD, OTC, dll)
-                      ELSE sb.practitioner_name
-                  END, E'\\n'
-              ) 
-              FROM service_bill sb
-              LEFT JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
-              LEFT JOIN lokasi l_rj ON rj.lokasi_uuid = l_rj.uuid
-              LEFT JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
-              LEFT JOIN lokasi l_ri ON ri.lokasi_uuid = l_ri.uuid
-              WHERE sb.bill_uuid = b.uuid
-          ) as care_details`),
+            SELECT l.name FROM service_bill sb
+            JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+            JOIN lokasi l ON rj.lokasi_uuid = l.uuid
+            WHERE sb.bill_uuid = b.uuid LIMIT 1
+          ) as polyclinic_name`),
+
+          db.raw(`(
+            SELECT 
+                CONCAT(
+                    TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), 
+                    ' - ', 
+                    TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')
+                )
+            FROM service_bill sb
+            JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+            WHERE sb.bill_uuid = b.uuid LIMIT 1
+          ) as schedule_time`),
+
+          db.raw(`(
+            SELECT l.name FROM service_bill sb
+            JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
+            JOIN lokasi l ON ri.lokasi_uuid = l.uuid
+            WHERE sb.bill_uuid = b.uuid LIMIT 1
+          ) as room_name`),
+
+          db.raw(`(
+            SELECT l.no_room FROM service_bill sb
+            JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
+            JOIN lokasi l ON ri.lokasi_uuid = l.uuid
+            WHERE sb.bill_uuid = b.uuid LIMIT 1
+          ) as bed_number`),
+           
           // 2. Membuat field status kelengkapan data (Case 3)
           db.raw(`(
               CASE
