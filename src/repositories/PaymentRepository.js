@@ -55,6 +55,7 @@ export default class PaymentRepository {
       .leftJoin("patients as p", "b.patient_uuid", "p.uuid")
       .leftJoin("service_bill as sb", "sb.bill_uuid", "b.uuid")
       .leftJoin("bill_item as bi", "bi.service_bill_uuid", "sb.uuid")
+      .leftJoin("birth_details as bd", "p.birth_detail_uuid", "bd.uuid")
       .select(
         "b.uuid", "b.name as patient_name", "b.invoice_code", "b.bill_code",
         "b.patient_uuid", "p.gender", "b.merge_with",
@@ -62,6 +63,10 @@ export default class PaymentRepository {
         "b.voucher_code", "b.voucher_value", "b.voucher_type", 
         "b.close_bill", "b.discount",
         "b.status as payment_status",
+        "p.no_rm",
+        "bd.age_year",
+        "bd.age_month",
+        "bd.age_day",
         db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
         db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
         db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
@@ -83,7 +88,8 @@ export default class PaymentRepository {
       .groupBy(
         "b.uuid", "p.gender", "b.name", "b.invoice_code", "b.bill_code", "b.patient_uuid",
         "b.grand_total", "b.sub_total", "b.ppn", "b.admin_fee", "b.voucher_code",
-        "b.voucher_value", "b.voucher_type", "b.close_bill", "b.status"
+        "b.voucher_value", "b.voucher_type", "b.close_bill", "b.status", "p.no_rm",
+        "bd.age_year", "bd.age_month", "bd.age_day"
     );
     
     if (!bill.length) throw new NotfoundException("Bill tidak ditemukan");
@@ -113,6 +119,10 @@ export default class PaymentRepository {
         acc.total_paid = 0;
         acc.is_paid = b.is_paid;
         acc.payment_status = b.payment_status;
+        acc.no_rm = b.no_rm;
+        acc.age_year = b.age_year;
+        acc.age_month = b.age_month;
+        acc.age_day = b.age_day;
       }
 
       acc.grand_total += parseFloat(b.grand_total) || 0;
