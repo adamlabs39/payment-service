@@ -42,17 +42,15 @@ export default class PaymentRepository {
   static async _getBillDetails(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
 
-    // Check tagihan apakah sudah digabung dengan tagihan lain
     const checkIfFindIsMerge = await db("bills as b")
       .where("b.uuid", uuid)
       .select("b.merge_with")
       .where("b.faskes_uuid", faskesUuid)
       .first();
     
-    if (!checkIfFindIsMerge) throw new NotfoundException("Bill not found");
-    if (checkIfFindIsMerge.merge_with) throw new CantProcessDataException("Bill Was Merged with another bill");
+    if (!checkIfFindIsMerge) throw new NotfoundException("Bill tidak ditemukan");
+    if (checkIfFindIsMerge.merge_with) throw new CantProcessDataException("Bill tidak dapat di proses");
 
-    // Query untuk mengambil semua data tagihan termasuk yang digabung
     const bill = await db("bills as b")
       .leftJoin("patients as p", "b.patient_uuid", "p.uuid")
       .leftJoin("service_bill as sb", "sb.bill_uuid", "b.uuid")
@@ -67,8 +65,13 @@ export default class PaymentRepository {
         db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
         db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
         db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
-        db.raw(`SUM(CASE WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee ELSE 0 END) AS total_obat`),
-        db.raw(`SUM(CASE WHEN bi.category_code = '3' THEN bi.price * bi.qty ELSE 0 END) AS total_alkes`),
+        db.raw(`SUM(
+          CASE 
+              WHEN bi.category_code = '2' THEN bi.price * bi.qty + bi.service_fee
+              WHEN bi.category_code = '3' THEN bi.price * bi.qty
+              ELSE 0 
+          END
+      ) AS total_obat_alkes`),
         db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
         db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`)
       )
@@ -83,10 +86,9 @@ export default class PaymentRepository {
         "b.voucher_value", "b.voucher_type", "b.close_bill", "b.status"
     );
     
-    if (!bill.length) throw new NotfoundException("Bill not found");
+    if (!bill.length) throw new NotfoundException("Bill tidak ditemukan");
 
     const finalBill = bill.reduce((acc, b) => {
-      // Inisialisasi properti pada iterasi pertama
       if (!acc.uuid) {
         acc.uuid = b.uuid;
         acc.patient_name = b.patient_name;
@@ -102,12 +104,10 @@ export default class PaymentRepository {
         acc.close_bill = b.close_bill;
         acc.admin_fee = b.admin_fee;
         
-        // Inisialisasi nilai numerik
         acc.grand_total = 0;
         acc.sub_total = 0;
         acc.total_tindakan = 0;
-        acc.total_obat = 0;
-        acc.total_alkes = 0;
+        acc.total_obat_alkes = 0;
         acc.total_ruangan = 0;
         acc.total_penunjang = 0;
         acc.total_paid = 0;
@@ -115,12 +115,10 @@ export default class PaymentRepository {
         acc.payment_status = b.payment_status;
       }
 
-      // Akumulasi nilai numerik dari setiap baris hasil query
       acc.grand_total += parseFloat(b.grand_total) || 0;
       acc.sub_total += parseFloat(b.sub_total) || 0;
       acc.total_tindakan += parseFloat(b.total_tindakan) || 0;
-      acc.total_obat += parseFloat(b.total_obat) || 0;
-      acc.total_alkes += parseFloat(b.total_alkes) || 0;
+      acc.total_obat_alkes += parseFloat(b.total_obat_alkes) || 0;
       acc.total_ruangan += parseFloat(b.total_ruangan) || 0;
       acc.total_penunjang += parseFloat(b.total_penunjang) || 0;
       acc.total_paid += parseFloat(b.total_paid) || 0;
@@ -128,7 +126,6 @@ export default class PaymentRepository {
       return acc;
     }, {});
 
-    // Simpan hasil query mentah jika dibutuhkan di tempat lain
     finalBill._rawBillResult = bill;
     return finalBill;
   }
@@ -210,7 +207,7 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const sbExists = !!(await db("service_bill as sb").where("sb.uuid", uuid).where("sb.faskes_uuid", faskesUuid).first());
-      if (!sbExists) throw new NotfoundException("Service Bill not found");
+      if (!sbExists) throw new NotfoundException("Service Bill tidak ditemukan");
 
       const items = await db("bill_item as bi")
         .where("bi.service_bill_uuid", uuid)
@@ -292,7 +289,7 @@ export default class PaymentRepository {
         .select("b.uuid", "b.patient_uuid", "b.name as patient_name")
         .first();
 
-      if (!bill) throw new NotfoundException("Bill not found");
+      if (!bill) throw new NotfoundException("Bill tidak ditemukan");
 
       let patient = bill.patient_name;
       
@@ -358,7 +355,7 @@ export default class PaymentRepository {
       
       // Ambil data tagihan saat ini
       const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
-      if (!bill) throw new NotfoundException("Bill not found");
+      if (!bill) throw new NotfoundException("Bill tidak ditemukan");
       if (bill.voucher_code) throw new BadRequestException("Tagihan sudah memiliki voucher");
 
       // Validasi voucher
@@ -402,7 +399,7 @@ export default class PaymentRepository {
       // Ambil data tagihan saat ini
       const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
 
-      if (!bill) throw new NotfoundException("Bill not found");
+      if (!bill) throw new NotfoundException("Bill tidak ditemukan");
       if (bill.discount) throw new BadRequestException("Tagihan sudah memiliki diskon");
 
       const tempBillData = { ...bill, discount: value };
@@ -435,7 +432,7 @@ export default class PaymentRepository {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
 
-      if (!bill) throw new NotfoundException("Bill not found");
+      if (!bill) throw new NotfoundException("Bill tidak ditemukan");
       if (bill.close_bill) throw new BadRequestException("Tagihan sudah ditutup");
 
       await db.transaction(async (trx) => {
@@ -454,12 +451,10 @@ export default class PaymentRepository {
     try {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
         
-      // 1. Ambil total tagihan (grand_total) terlebih dahulu
-      const bill = await this.GetTotalBill(bill_uuid);
-      if (!bill) throw new NotfoundException("Tagihan tidak ditemukan");
-      const totalBill = parseFloat(bill.grand_total) || 0;
+      const billDetails = await this.GetTotalBill(bill_uuid);
+      if (!billDetails) throw new NotfoundException("Tagihan tidak ditemukan");
+      const totalBill = parseFloat(billDetails.grand_total) || 0;
 
-      // 2. Ambil semua riwayat pembayaran, diurutkan dari yang paling lama
       const history = await db("payment_history as ph")
         .leftJoin("cashier_report as cr", "ph.kasir_uuid", "cr.uuid")
         .select(
@@ -471,18 +466,11 @@ export default class PaymentRepository {
         .where("ph.faskes_uuid", faskesUuid)
         .orderBy('ph.created_at', 'asc'); 
 
-      // 3. Proses riwayat untuk menambahkan kalkulasi hutang berjalan
       let cumulativePaid = 0;
       const enrichedHistory = history.map(payment => {
         const amountPaid = parseFloat(payment.amount) || 0;
-            
-        // Hitung hutang SEBELUM pembayaran ini ditambahkan
         const debt_before = totalBill - cumulativePaid;
-            
-        // Tambahkan pembayaran ini ke total kumulatif
         cumulativePaid += amountPaid;
-            
-        // Hitung hutang SETELAH pembayaran ini ditambahkan
         const debt_after = totalBill - cumulativePaid;
 
         return {
@@ -495,8 +483,8 @@ export default class PaymentRepository {
       const totalPaid = cumulativePaid;
       const finalDebt = totalBill - totalPaid;
 
-      // 4. Kembalikan data yang sudah diperkaya
       return {
+        bill_details: billDetails,
         total_paid: totalPaid,
         total_bill: totalBill,
         is_paid: totalPaid >= totalBill,
@@ -529,16 +517,13 @@ export default class PaymentRepository {
           'b.grand_total', 'b.patient_uuid', 'b.status as is_paid',
           'a.full_address', 'p.phone as no_handphone', 'p.gender as jenis_kelamin',
           'p.no_rm', 'bd.age_year', 'bd.age_month', 'bd.age_day',
-          // 1. Membuat field baru untuk detail keperawatan yang dinamis
           db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
-
           db.raw(`(
             SELECT l.name FROM service_bill sb
             JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
             JOIN lokasi l ON rj.lokasi_uuid = l.uuid
             WHERE sb.bill_uuid = b.uuid LIMIT 1
           ) as polyclinic_name`),
-
           db.raw(`(
             SELECT 
                 CONCAT(
@@ -550,22 +535,18 @@ export default class PaymentRepository {
             JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
             WHERE sb.bill_uuid = b.uuid LIMIT 1
           ) as schedule_time`),
-
           db.raw(`(
             SELECT l.name FROM service_bill sb
             JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
             JOIN lokasi l ON ri.lokasi_uuid = l.uuid
             WHERE sb.bill_uuid = b.uuid LIMIT 1
           ) as room_name`),
-
           db.raw(`(
             SELECT l.no_room FROM service_bill sb
             JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
             JOIN lokasi l ON ri.lokasi_uuid = l.uuid
             WHERE sb.bill_uuid = b.uuid LIMIT 1
           ) as bed_number`),
-           
-          // 2. Membuat field status kelengkapan data (Case 3)
           db.raw(`(
               CASE
                   WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'IGD')
@@ -573,7 +554,6 @@ export default class PaymentRepository {
                   ELSE 'Data Lengkap'
               END
           ) as completeness_status`),
-          // 3. Mengambil jenis pembayaran (tidak berubah)
           db.raw(`(
               CASE 
                   WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true) AND NOT EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid AND ph.payment_type = 'CASH')
@@ -581,7 +561,6 @@ export default class PaymentRepository {
                   ELSE 'TUNAI' 
               END
           ) as payment_type`),
-          // 4. Mengambil daftar tipe layanan (tidak berubah)
           db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type_list`)
         )
         .where('b.faskes_uuid', faskesUuid)
@@ -619,10 +598,8 @@ export default class PaymentRepository {
       }
 
       if (params.start_date && params.end_date) {
-        query.whereBetween('b.updated_at', [
-            moment.unix(params.start_date).startOf('day').unix(),
-            moment.unix(params.end_date).endOf('day').unix()
-        ]);
+        query.where('b.updated_at', '>=', params.start_date)
+             .where('b.updated_at', '<=', params.end_date);
       }
 
       if (params.service_type) {
@@ -816,18 +793,15 @@ export default class PaymentRepository {
       const { amount, payment_method, note, information } = data;
 
       return db.transaction(async (trx) => {
-        // Ambil data tagihan dan kunci barisnya untuk update
         const bill = await trx("bills")
           .where({ uuid: uuid, faskes_uuid: faskesUuid })
           .forUpdate()
           .first();
 
-        // Lakukan validasi
         if (!bill) throw new NotfoundException("Tagihan tidak ditemukan");
         if (!bill.close_bill) throw new BadRequestException("Tagihan ini belum ditutup");
         if (bill.status) throw new BadRequestException("Tagihan ini sudah lunas");
 
-        // Hitung sisa hutang saat ini
         const paymentSum = await trx("payment_history")
           .where("bill_uuid", uuid)
           .sum('amount as totalPaid')
@@ -839,7 +813,6 @@ export default class PaymentRepository {
           throw new BadRequestException("Tagihan ini sudah tidak memiliki hutang");
         }
 
-        // Proses nominal pembayaran
         let amountToRecord = parseFloat(amount) || 0;
         let changeAmount = 0;
 
@@ -848,7 +821,6 @@ export default class PaymentRepository {
           amountToRecord = remainingDebt; 
         }
         
-        // Masukkan ke riwayat pembayaran
         await trx("payment_history").insert({
           uuid: uuidv7(),
           faskes_uuid: faskesUuid,

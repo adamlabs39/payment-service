@@ -48,7 +48,7 @@ export default class ReportRepository {
             }
 
             if (params.type && params.type !== 'ALL') {
-                if (!availType.includes(params.type)) throw new BadRequestException('Invalid type');
+                if (!availType.includes(params.type)) throw new BadRequestException('Tipe tidak valid');
                 query.where('cr.type', params.type);
             }
     
@@ -81,7 +81,7 @@ export default class ReportRepository {
             }
     
             if (params.shift_type && params.shift_type !== 'ALL') {
-                if (!availShiftType.includes(params.shift_type)) throw new BadRequestException('Invalid shift type');
+                if (!availShiftType.includes(params.shift_type)) throw new BadRequestException('Shift type tidak valid');
                 query.where('cr.shift_type', params.shift_type);
             }
     

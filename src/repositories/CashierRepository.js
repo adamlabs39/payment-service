@@ -65,13 +65,11 @@ export default class CashierRepository {
             const cash = parseFloat(data.cash) || 0;
             const debit = parseFloat(data.debit) || 0;
             const insurance = parseFloat(data.insurance) || 0;
-            // Ini adalah total menurut fisik
             const totalActual = cash + debit + insurance;
             
-            // Logika rekonsiliasi
             if (totalPayment !== totalActual) {
                 const selisih = totalPayment - totalActual;
-                throw new CantProcessDataException(`Total payment is ${totalPayment} but total actual is ${totalActual}. Selisih: ${selisih}`);
+                throw new CantProcessDataException(`Total pembayaran ${totalPayment} tidak sama dengan total aktual ${totalActual}. Selisih: ${selisih}`);
             }
 
             const faskesProfile = await db('faskes_profiles')
@@ -93,7 +91,6 @@ export default class CashierRepository {
                     cash,
                     debit,
                     insurance,
-                    // Memperbaiki perhitungan PPN
                     ppn: totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0),
                     status: false,
                     transaction_total: paymentHistory.length,
@@ -106,7 +103,6 @@ export default class CashierRepository {
                 trx_count: paymentHistory.length,
                 system: {
                     total: totalPayment,
-                    // Mengubah perhitungan PPN menjadi persen
                     ppn: faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0,
                     ppn_value: totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0),
                     grand_total: totalPayment + (totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0)),
