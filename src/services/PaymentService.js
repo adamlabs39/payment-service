@@ -107,6 +107,24 @@ export default class PaymentService {
         }
     }
 
+    static async getApsOtcList(queryParams) {
+        try {
+            const validQueryParams = ZodValidator.validate(PaymentValidation.GET_CLOSED_BILLS_FILTER, queryParams);
+            return await PaymentRepository.getApsOtc(validQueryParams);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async getPelayananList(queryParams) {
+        try {
+            const validQueryParams = ZodValidator.validate(PaymentValidation.GET_CLOSED_BILLS_FILTER, queryParams);
+            return await PaymentRepository.getPelayanan(validQueryParams);
+        } catch (error) {
+            throw error;
+        }
+    }
+
     static async payDebtOnClosedBill(uuid, data) {
         try {
             if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');

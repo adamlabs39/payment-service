@@ -115,6 +115,24 @@ export default class PaymentController {
         }
     }
 
+    static async getApsOtcList(req, res, next) {
+        try {
+            const result = await PaymentService.getApsOtcList(req.query);
+            return res.json(successResponse("Data berhasil ditampilkan", result.data, result.pagination));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async getPelayananList(req, res, next) {
+        try {
+            const result = await PaymentService.getPelayananList(req.query);
+            return res.json(successResponse("Data berhasil ditampilkan", result.data, result.pagination));
+        } catch (error) {
+            next(error);
+        }
+    }
+
     static async payDebtOnClosedBill(req, res, next) {
         try {
             const { uuid } = req.params;

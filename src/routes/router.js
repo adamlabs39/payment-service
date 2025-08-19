@@ -9,6 +9,8 @@ const r = express.Router();
 // Payment
 r.get('/closed-bills', authorizationSdk([]), PaymentController.getClosedBillList);
 r.get('/closed-bills/:uuid/history', authorizationSdk([]), PaymentController.getPaymentHistory);
+r.get('/aps-otc', authorizationSdk([]), PaymentController.getApsOtcList);
+r.get('/pelayanan', authorizationSdk([]), PaymentController.getPelayananList);
 r.get('/payment',authorizationSdk([]),PaymentController.findPayment);
 r.get('/payment/:uuid',authorizationSdk([]),PaymentController.getDetailBill);
 r.get('/payment/:uuid/items',authorizationSdk([]),PaymentController.getBillItems);
