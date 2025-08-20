@@ -41,9 +41,11 @@ export default class PaymentRepository {
         .leftJoin('birth_details as bd', 'p.birth_detail_uuid', 'bd.uuid')
         .select(
           'b.uuid', 'b.name as patient_name', 'b.invoice_code', 'b.bill_code',
-          'b.grand_total', 'b.patient_uuid', 'b.status as is_paid',
+          'b.grand_total', 'b.patient_uuid',
+          'b.status as payment_status',
           'a.full_address', 'p.phone as no_handphone', 'p.gender as jenis_kelamin',
           'p.no_rm', 'bd.age_year', 'bd.age_month', 'bd.age_day',
+          db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
           db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
           db.raw(`(SELECT l.name FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' JOIN lokasi l ON rj.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as polyclinic_name`),
           db.raw(`(SELECT CONCAT(TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), ' - ', TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')) FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' WHERE sb.bill_uuid = b.uuid LIMIT 1) as schedule_time`),
