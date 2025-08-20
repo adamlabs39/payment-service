@@ -56,12 +56,9 @@ export default class PaymentValidation{
             invalid_type_error: "Jumlah bayar harus berupa angka",
         }).min(1, { message: "Jumlah bayar minimal 1" }),
 
-        payment_method: z.preprocess(
-            (val) => (val === "" ? null : val),
-            z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT'], { 
-                errorMap: () => ({ message: "Metode pembayaran tidak valid" })
-            }).nullable()
-        ),
+        payment_method: z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT'], {
+            errorMap: () => ({ message: "Metode pembayaran harus dipilih" })
+        }),
         
         note: z.string().optional().nullable(),
         information: z.string().optional().nullable(),

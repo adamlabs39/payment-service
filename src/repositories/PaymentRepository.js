@@ -406,7 +406,7 @@ export default class PaymentRepository {
   static async getApsOtc(params) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = this._buildBillListQuery()
-        .where({ 'b.faskes_uuid': faskesUuid, 'b.close_bill': false});
+        .where({ 'b.faskes_uuid': faskesUuid});
 
     const apsOtcTypes = ['OTC', 'LAB', 'FISIO'];
     query.whereExists(function() {
@@ -425,7 +425,7 @@ export default class PaymentRepository {
   static async getPelayanan(params) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = this._buildBillListQuery()
-        .where({ 'b.faskes_uuid': faskesUuid, 'b.close_bill': false});
+        .where({ 'b.faskes_uuid': faskesUuid});
 
     const apsOtcTypes = ['OTC', 'LAB', 'FISIO'];
     query.whereNotExists(function() {
@@ -460,6 +460,10 @@ export default class PaymentRepository {
     const totalPayment = history.reduce((acc, row) => acc + (parseFloat(row.amount) || 0), 0);
     
     const remainingDebt = bill.grand_total - totalPayment;
+
+    if (data.payment_type === 'INSURANCE' && (parseFloat(data.amount) || 0) > remainingDebt) {
+      throw new BadRequestException("Pembayaran asuransi tidak boleh melebihi sisa tagihan");
+    }
     let amountToRecord = parseFloat(data.amount) || 0;
     let changeAmount = 0;
     let updatedPaymentStatus = false;
