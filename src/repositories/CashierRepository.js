@@ -14,6 +14,13 @@ export default class CashierRepository {
             .where('type', 'SHIFT')
             .where('status', true)
             .orderBy('id', 'desc')
+            .select(
+                'uuid',
+                'nama_kasir',
+                'shift_type',
+                'beginning_balance',
+                'shift_time_open'
+            )
             .first();
     }
 
@@ -128,7 +135,8 @@ export default class CashierRepository {
                 nama_akun: activeShift.nama_kasir,
                 terakhir_login: iat,
                 shift: shiftMap[activeShift.shift_type] || 'N/A',
-                tanggal_jam_closing: moment().unix()
+                saldo_awal: activeShift.beginning_balance,
+                tanggal_jam_buka: activeShift.shift_time_open
             };
         } catch (error) {
             throw error;
