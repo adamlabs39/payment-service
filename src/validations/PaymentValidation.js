@@ -23,8 +23,7 @@ export default class PaymentValidation{
             invalid_type_error: "Jumlah bayar harus diisi",
         }).min(1, { message: "Jumlah bayar harus lebih dari 0" }),
         payment_type: z.enum(['CASH', 'INSURANCE'], {
-            required_error: "Cara bayar harus dipilih",
-            invalid_type_error: "Cara bayar harus dipilih"
+            errorMap: () => ({ message: "Cara bayar harus dipilih" })
         }),
 
         payment_method: z.preprocess(
@@ -75,11 +74,11 @@ export default class PaymentValidation{
             z.enum(['LUNAS', 'PIUTANG', 'SEMUA'])
         ).optional(),
         start_date: z.string()
-            .regex(/^\d+$/, { message: "start_date must be a Unix timestamp string" })
+            .regex(/^\d+$/, { message: "tanggal awal harus berupa timestamp unix" })
             .transform(Number)
             .optional(),
         end_date: z.string()
-            .regex(/^\d+$/, { message: "end_date must be a Unix timestamp string" })
+            .regex(/^\d+$/, { message: "tanggal akhir harus berupa timestamp unix" })
             .transform(Number)
             .optional(),
         service_type: z.union([

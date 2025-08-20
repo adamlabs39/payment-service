@@ -12,12 +12,7 @@ import { uuidv7 } from "uuidv7";
 import moment from "moment";
 
 export default class PaymentRepository {
-  /**
-  * (Helper Internal) Menghitung total akhir tagihan setelah voucher dan diskon.
-  * @private
-  * @param {object} billData - Objek yang berisi detail tagihan.
-  * @returns {number} Grand total yang sudah dihitung.
-  */
+  // Helper internal untuk menghitung total tagihan
   static _calculateBillTotals(billData) {
     const subTotal = parseFloat(billData.sub_total) || 0;
     const ppn = parseFloat(billData.ppn) || 0;
@@ -38,11 +33,7 @@ export default class PaymentRepository {
     return total;
   }
 
-  /**
-  * (Helper Internal) Membangun query untuk daftar tagihan.
-  * @private
-  * @returns {Object} Query builder untuk daftar tagihan.
-  */
+  // Helper internal untuk membangun query list tagihan
   static _buildBillListQuery() {
     return db('bills as b')
         .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
@@ -72,12 +63,7 @@ export default class PaymentRepository {
         );
       }
       
-  /**
-  * (Helper Internal) Menerapkan filter pada query daftar tagihan.
-  * @private
-  * @param {Object} query - Query builder untuk daftar tagihan.
-  * @param {Object} params - Parameter filter.
-  */
+  // Helper internal untuk menerapkan filter list tagihan
   static _applyBillListFilters(query, params) {
     const serviceTypeMap = { IGD: ["IGD"], RI: ["RI"], RJ: ["RJ"], APS: ["OTC", "LAB", "FISIO"], OTC: ['OTC'] };
 
@@ -132,12 +118,7 @@ export default class PaymentRepository {
     }
   }
 
-  /**
-  * (Helper Internal) Mengambil detail tagihan.
-  * @private
-  * @param {string} uuid - UUID tagihan.
-  * @returns {Promise<Object>} Detail tagihan.
-  */
+  // Helper internal untuk mendapatkan detail tagihan
   static async _getBillDetails(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
 
@@ -201,6 +182,7 @@ export default class PaymentRepository {
     return finalBill;
   }
 
+  // Method public untuk mencari tagihan
   static async FindBill(search) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = db('bills as b')
@@ -218,6 +200,7 @@ export default class PaymentRepository {
     return await query;
   }
 
+  // Method public untuk mendapatkan detail tagihan
   static async GetDetailBill(uuid) {
     const finalBill = await this._getBillDetails(uuid);
     const service_bill = await db("service_bill as sb")
@@ -236,6 +219,7 @@ export default class PaymentRepository {
     return { ...finalBill, service_bill };
   }
 
+  // Method public untuk mendapatkan detail tagihan item
   static async GetDetailBillItem(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const sbExists = await db("service_bill").where({ uuid, faskes_uuid: faskesUuid }).first();
@@ -266,6 +250,7 @@ export default class PaymentRepository {
     return { item: groupedResult, total: totalKeseluruhan };
   }
 
+  // Method public untuk mendapatkan detail tagihan pasien
   static async getDetailPasienBill(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const bill = await db("bills as b").where({ "b.uuid": uuid, "b.faskes_uuid": faskesUuid }).select("b.uuid", "b.patient_uuid", "b.name as patient_name").first();
@@ -301,6 +286,7 @@ export default class PaymentRepository {
     return { patient, bill: billDetail };
   }
 
+  // Method public untuk menerapkan voucher
   static async ApplyVoucher(uuid, data) {
       const { faskesUuid } = Context.get(CTX_AUTHOR);
       const { code } = data;
@@ -325,6 +311,7 @@ export default class PaymentRepository {
       return true;
   }
 
+  // Method public untuk menerapkan diskon
   static async ApplyDiscount(uuid, data) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const { value } = data;
@@ -344,12 +331,14 @@ export default class PaymentRepository {
     return true;
   }
 
+  // Method public untuk menghitung tagihan yang menggunakan kode voucher
   static async CountBillUsedVoucherCode(voucherCode) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const count = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.voucher_code", voucherCode).count("* as total").first();
     return count.total;
   }
 
+  // Method public untuk menutup tagihan
   static async CloseBill(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
@@ -363,6 +352,7 @@ export default class PaymentRepository {
     return true;
   }
 
+  // Method public untuk mendapatkan riwayat pembayaran
   static async GetPaymentHistory(bill_uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
         
@@ -399,6 +389,7 @@ export default class PaymentRepository {
     };
   }
 
+  // Method public untuk mendapatkan tagihan yang ditutup
   static async getClosedBill(params) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = this._buildBillListQuery()
@@ -409,6 +400,7 @@ export default class PaymentRepository {
     return await KnexPagination.init(query, params);
   }
 
+  // Method public untuk mendapatkan tagihan APS/OTC
   static async getApsOtc(params) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = this._buildBillListQuery()
@@ -427,6 +419,7 @@ export default class PaymentRepository {
     return await KnexPagination.init(query, params);
   }
 
+  // Method public untuk mendapatkan tagihan pelayanan
   static async getPelayanan(params) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = this._buildBillListQuery()
@@ -445,12 +438,14 @@ export default class PaymentRepository {
     return await KnexPagination.init(query, params);
   }
 
+  // Method public untuk mendapatkan total tagihan
   static async GetTotalBill(uuid) {
     const finalBill = await this._getBillDetails(uuid);
     delete finalBill._rawBillResult;
     return finalBill;
   }
 
+  // Method public untuk melakukan pembayaran tagihan
   static async PaymentBill(uuid, data) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const getCashier = await CashierRepository._getActiveShift(faskesUuid);
@@ -489,8 +484,11 @@ export default class PaymentRepository {
     return { success: true, change: changeAmount > 0 ? changeAmount : 0 };
   }
 
+  // Method public untuk melakukan pembayaran tagihan
   static async PayDebt(uuid, data) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
+    const getCashier = await CashierRepository._getActiveShift(faskesUuid);
+    if (!getCashier) throw new BadRequestException("Shift kasir belum dibuka");
     const { amount, payment_method, note, information } = data;
 
     return db.transaction(async (trx) => {
@@ -516,7 +514,7 @@ export default class PaymentRepository {
         
       await trx("payment_history").insert({
         uuid: uuidv7(), faskes_uuid: bill.faskes_uuid, bill_uuid: uuid,
-        kasir_uuid: (await CashierRepository._getActiveShift(bill.faskes_uuid, trx))?.uuid,
+        kasir_uuid: getCashier.uuid,
         amount: amountToRecord, payment_type: 'CASH', payment_method: payment_method,
         information: information, note: note,
         created_at: moment().unix(), updated_at: moment().unix(),
