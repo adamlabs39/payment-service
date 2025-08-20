@@ -406,7 +406,7 @@ export default class PaymentRepository {
   static async getApsOtc(params) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = this._buildBillListQuery()
-        .where({ 'b.faskes_uuid': faskesUuid, 'b.close_bill': false, 'b.status': false });
+        .where({ 'b.faskes_uuid': faskesUuid, 'b.close_bill': false});
 
     const apsOtcTypes = ['OTC', 'LAB', 'FISIO'];
     query.whereExists(function() {
@@ -425,7 +425,7 @@ export default class PaymentRepository {
   static async getPelayanan(params) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = this._buildBillListQuery()
-        .where({ 'b.faskes_uuid': faskesUuid, 'b.close_bill': false, 'b.status': false });
+        .where({ 'b.faskes_uuid': faskesUuid, 'b.close_bill': false});
 
     const apsOtcTypes = ['OTC', 'LAB', 'FISIO'];
     query.whereNotExists(function() {
