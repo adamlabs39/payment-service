@@ -15,15 +15,15 @@ export default class CashierValidation{
     static CLOSE_SHIFT = z.object({
         cash: z.number({
             required_error: "Pendapatan shift kasir (cash) harus diisi",
-            invalid_type_error: "Input cash harus diisi",
+            invalid_type_error: "Pendapatan tunai harus diisi",
         }).min(0),
         debit: z.number({
             required_error: "Pendapatan shift kasir (debit) harus diisi",
-            invalid_type_error: "Input debit harus diisi",
+            invalid_type_error: "Pendapatan debit harus diisi",
         }).min(0),
         insurance: z.number({
             required_error: "Pendapatan shift kasir (asuransi) harus diisi",
-            invalid_type_error: "Input asuransi harus diisi",
+            invalid_type_error: "Pendapatan Kredit (Asuransi) harus diisi",
         }).min(0),
     });
 }

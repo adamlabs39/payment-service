@@ -70,8 +70,8 @@ export default class CashierRepository {
             const totalActual = cash + debit + insurance;
             
             if (totalPayment !== totalActual) {
-                const selisih = totalPayment - totalActual;
-                throw new CantProcessDataException(`Total pembayaran ${totalPayment} tidak sama dengan total aktual ${totalActual}. Selisih: ${selisih}`);
+                const selisih = totalActual - totalPayment;
+                throw new CantProcessDataException(`Gagal closing shift, Total pendapatan shift ${totalPayment} selisih: ${Math.abs(selisih)}`);
             }
 
             const faskesProfile = await db('faskes_profiles').where('faskes_uuid', faskesUuid).select('value_ppn', 'status_ppn').first();

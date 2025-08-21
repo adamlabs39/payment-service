@@ -67,7 +67,7 @@ export default class PaymentRepository {
       
   // Helper internal untuk menerapkan filter list tagihan
   static _applyBillListFilters(query, params) {
-    const serviceTypeMap = { IGD: ["IGD"], RI: ["RI"], RJ: ["RJ"], APS: ["OTC", "LAB", "FISIO"], OTC: ['OTC'] };
+    const serviceTypeMap = { IGD: ["IGD"], RI: ["RI"], RJ: ["RJ"], APS: ["LAB", "FISIO"], OTC: ['OTC'] };
 
     // Filter Status (Lunas/Piutang/Semua)
     if (params.status && params.status.toUpperCase() !== 'SEMUA') {

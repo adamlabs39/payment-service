@@ -17,7 +17,9 @@ export default class ReportValidation {
     });
 
     static GET_CLOSING_REPORT = this.#BASE_PARAMS.extend({
-        type: z.enum(['SHIFT', 'DAYS', 'ALL']).optional(),
+        type: z.enum(['SHIFT', 'DAYS', 'ALL'], {
+            errorMap: () => ({ message: "Nilai status tidak valid. Harap pilih SHIFT, DAYS, atau ALL." })
+        }).optional(),
     });
 
     static GET_REVENUE_REPORT = z.object({
