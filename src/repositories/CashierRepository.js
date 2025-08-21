@@ -15,6 +15,7 @@ export default class CashierRepository {
             .where('status', true)
             .orderBy('id', 'desc')
             .select(
+                'id',
                 'uuid',
                 'nama_kasir',
                 'shift_type',
