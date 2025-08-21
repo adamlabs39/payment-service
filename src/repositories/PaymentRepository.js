@@ -56,7 +56,22 @@ export default class PaymentRepository {
         ) as no_reg`),
         db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
         db.raw(`(SELECT l.name FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' JOIN lokasi l ON rj.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as polyclinic_name`),
-        db.raw(`(SELECT CONCAT(TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), ' - ', TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')) FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' WHERE sb.bill_uuid = b.uuid LIMIT 1) as schedule_time`),
+        db.raw(`(
+          SELECT TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'DD-MM-YYYY')
+          FROM service_bill sb
+          JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+          WHERE sb.bill_uuid = b.uuid LIMIT 1
+        ) as schedule_date`),
+        db.raw(`(
+          SELECT CONCAT(
+            TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), 
+            ' - ', 
+            TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')
+          )
+          FROM service_bill sb
+          JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+          WHERE sb.bill_uuid = b.uuid LIMIT 1
+        ) as schedule_time`),
         db.raw(`(SELECT l.name FROM service_bill sb JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI' JOIN lokasi l ON ri.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as room_name`),
         db.raw(`(SELECT l.no_room FROM service_bill sb JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI' JOIN lokasi l ON ri.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as bed_number`),
         db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'IGD') THEN 'Data Tidak Lengkap' ELSE 'Data Lengkap' END) as completeness_status`),
@@ -156,12 +171,17 @@ export default class PaymentRepository {
               END
             ) as payment_type`),
             db.raw(`(
-              SELECT 
-                  CONCAT(
-                      TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), 
-                      ' - ', 
-                      TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')
-                  )
+              SELECT TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'DD-MM-YYYY')
+              FROM service_bill sb
+              JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+              WHERE sb.bill_uuid = b.uuid LIMIT 1
+            ) as schedule_date`),
+            db.raw(`(
+              SELECT CONCAT(
+                  TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), 
+                  ' - ', 
+                  TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')
+              )
               FROM service_bill sb
               JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
               WHERE sb.bill_uuid = b.uuid LIMIT 1
@@ -208,6 +228,8 @@ export default class PaymentRepository {
         acc.total_ruangan += parseFloat(b.total_ruangan) || 0;
         acc.total_penunjang += parseFloat(b.total_penunjang) || 0;
         acc.total_paid += parseFloat(b.total_paid) || 0;
+        acc.schedule_date = b.schedule_date;
+        acc.schedule_time = b.schedule_time;
         return acc;
     }, {});
 
