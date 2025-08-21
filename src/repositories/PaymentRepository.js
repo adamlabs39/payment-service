@@ -36,34 +36,42 @@ export default class PaymentRepository {
   // Helper internal untuk membangun query list tagihan
   static _buildBillListQuery() {
     return db('bills as b')
-        .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
-        .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
-        .leftJoin('birth_details as bd', 'p.birth_detail_uuid', 'bd.uuid')
-        .select(
-          'b.uuid', 'b.name as patient_name', 'b.invoice_code', 'b.bill_code',
-          'b.grand_total', 'b.patient_uuid',
-          'a.full_address', 'p.phone as no_handphone', 'p.gender as jenis_kelamin',
-          'p.no_rm', 'bd.age_year', 'bd.age_month', 'bd.age_day',
-          'b.status as payment_status',
-          db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
-          db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
-          db.raw(`(SELECT l.name FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' JOIN lokasi l ON rj.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as polyclinic_name`),
-          db.raw(`(SELECT CONCAT(TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), ' - ', TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')) FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' WHERE sb.bill_uuid = b.uuid LIMIT 1) as schedule_time`),
-          db.raw(`(SELECT l.name FROM service_bill sb JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI' JOIN lokasi l ON ri.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as room_name`),
-          db.raw(`(SELECT l.no_room FROM service_bill sb JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI' JOIN lokasi l ON ri.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as bed_number`),
-          db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'IGD') THEN 'Data Tidak Lengkap' ELSE 'Data Lengkap' END) as completeness_status`),
-          db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true) AND NOT EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid AND ph.payment_type = 'CASH') THEN 'ASURANSI' ELSE 'TUNAI' END) as payment_type`),
-          db.raw(`(
-            CASE
-              WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type IN ('RJ', 'OTC', 'LAB', 'FISIO')) THEN 'RJ'
-              WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'RI') THEN 'RI'
-              WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'IGD') THEN 'IGD'
-              ELSE NULL
-            END
-          ) as main_service_category`),
-          db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type_list`)
-        );
-      }
+      .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
+      .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
+      .leftJoin('birth_details as bd', 'p.birth_detail_uuid', 'bd.uuid')
+      .select(
+        'b.uuid', 'b.name as patient_name', 'b.invoice_code', 'b.bill_code',
+        'b.grand_total', 'b.patient_uuid',
+        'a.full_address', 'p.phone as no_handphone', 'p.gender as jenis_kelamin',
+        'p.no_rm', 'bd.age_year', 'bd.age_month', 'bd.age_day',
+        'b.status as payment_status',
+        db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
+        db.raw(`(
+          SELECT COALESCE(rj.no_reg, ri.no_reg) 
+          FROM service_bill sb
+          LEFT JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+          LEFT JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
+          WHERE sb.bill_uuid = b.uuid 
+          LIMIT 1
+        ) as no_reg`),
+        db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
+        db.raw(`(SELECT l.name FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' JOIN lokasi l ON rj.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as polyclinic_name`),
+        db.raw(`(SELECT CONCAT(TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), ' - ', TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')) FROM service_bill sb JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ' WHERE sb.bill_uuid = b.uuid LIMIT 1) as schedule_time`),
+        db.raw(`(SELECT l.name FROM service_bill sb JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI' JOIN lokasi l ON ri.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as room_name`),
+        db.raw(`(SELECT l.no_room FROM service_bill sb JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI' JOIN lokasi l ON ri.lokasi_uuid = l.uuid WHERE sb.bill_uuid = b.uuid LIMIT 1) as bed_number`),
+        db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'IGD') THEN 'Data Tidak Lengkap' ELSE 'Data Lengkap' END) as completeness_status`),
+        db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true) AND NOT EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid AND ph.payment_type = 'CASH') THEN 'ASURANSI' ELSE 'TUNAI' END) as payment_type`),
+        db.raw(`(
+          CASE
+            WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type IN ('RJ', 'OTC', 'LAB', 'FISIO')) THEN 'RJ'
+            WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'RI') THEN 'RI'
+            WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.type = 'IGD') THEN 'IGD'
+            ELSE NULL
+          END
+        ) as main_service_category`),
+        db.raw(`(SELECT STRING_AGG(DISTINCT sb.type::TEXT, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as service_type_list`)
+      );
+  }
       
   // Helper internal untuk menerapkan filter list tagihan
   static _applyBillListFilters(query, params) {
@@ -140,6 +148,13 @@ export default class PaymentRepository {
             "b.voucher_code", "b.voucher_value", "b.voucher_type", 
             "b.close_bill", "b.discount", "b.status as payment_status", "p.no_rm",
             "bd.age_year", "bd.age_month", "bd.age_day",
+            db.raw(`(
+              CASE
+                  WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true)
+                  THEN 'ASURANSI'
+                  ELSE 'TUNAI'
+              END
+            ) as payment_type`),
             db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
             db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
             db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
@@ -224,8 +239,12 @@ export default class PaymentRepository {
   // Method public untuk mendapatkan detail tagihan item
   static async GetDetailBillItem(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const sbExists = await db("service_bill").where({ uuid, faskes_uuid: faskesUuid }).first();
-    if (!sbExists) throw new NotfoundException("Service Bill tidak ditemukan");
+    const serviceBill = await db("service_bill as sb")
+            .where("sb.uuid", uuid)
+            .where("sb.faskes_uuid", faskesUuid)
+            .select('with_insurance')
+            .first();
+    if (!serviceBill) throw new NotfoundException("Service Bill tidak ditemukan");
 
     const items = await db("bill_item as bi")
       .where("bi.service_bill_uuid", uuid)
@@ -233,6 +252,8 @@ export default class PaymentRepository {
         'bi.uuid', 'bi.item_name', 'bi.qty', 'bi.price', 'bi.price_item',
         'bi.service_fee', 'bi.category_code', 'bi.additional_field', 'bi.date_used'
       );
+
+    const paymentType = serviceBill.with_insurance ? 'ASURANSI' : 'TUNAI';
 
     const groupedResult = { tindakan: { list: [], total: 0 }, penunjang: { list: [], total: 0 }, obat: { list: [], total: 0 }, alkes: { list: [], total: 0 }, ruangan: { list: [], total: 0 } };
     let totalKeseluruhan = 0;
@@ -249,7 +270,7 @@ export default class PaymentRepository {
       }
     });
 
-    return { item: groupedResult, total: totalKeseluruhan };
+    return { item: groupedResult, total: totalKeseluruhan, payment_type: paymentType };
   }
 
   // Method public untuk mendapatkan detail tagihan pasien
@@ -490,17 +511,19 @@ export default class PaymentRepository {
     return { success: true, change: changeAmount > 0 ? changeAmount : 0 };
   }
 
-  // Method public untuk melakukan pembayaran tagihan
   static async PayDebt(uuid, data) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const getCashier = await CashierRepository._getActiveShift(faskesUuid);
-    if (!getCashier) throw new BadRequestException("Shift kasir belum dibuka");
-    const { amount, payment_method, note, information } = data;
+    const { amount, payment_type, payment_method, note, information } = data;
+
+    if (payment_type === 'CASH') {
+        const getCashier = await CashierRepository._getActiveShift(faskesUuid);
+        if (!getCashier) throw new BadRequestException("Shift kasir belum dibuka");
+    }
 
     return db.transaction(async (trx) => {
       const whereClause = { uuid };
       if (faskesUuid) whereClause.faskes_uuid = faskesUuid;
-      
+        
       const bill = await trx("bills").where(whereClause).forUpdate().first();
       if (!bill) throw new NotfoundException("Tagihan tidak ditemukan");
       if (!bill.close_bill) throw new BadRequestException("Tagihan ini belum ditutup");
@@ -514,18 +537,22 @@ export default class PaymentRepository {
       let amountToRecord = parseFloat(amount) || 0;
       let changeAmount = 0;
       if (amountToRecord > remainingDebt) {
-        changeAmount = amountToRecord - remainingDebt;
+        if (payment_type === 'CASH') {
+          changeAmount = amountToRecord - remainingDebt;
+        }
         amountToRecord = remainingDebt;
       }
         
       await trx("payment_history").insert({
         uuid: uuidv7(), faskes_uuid: bill.faskes_uuid, bill_uuid: uuid,
-        kasir_uuid: getCashier.uuid,
-        amount: amountToRecord, payment_type: 'CASH', payment_method: payment_method,
+        kasir_uuid: (await CashierRepository._getActiveShift(bill.faskes_uuid, trx))?.uuid,
+        amount: amountToRecord, 
+        payment_type: payment_type, 
+        payment_method: payment_method,
         information: information, note: note,
         created_at: moment().unix(), updated_at: moment().unix(),
       });
-      
+        
       const newTotalPaid = totalPaid + amountToRecord;
       if (newTotalPaid >= bill.grand_total) {
         await trx("bills").where({ uuid }).update({ status: true, updated_at: moment().unix() });

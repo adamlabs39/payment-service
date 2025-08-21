@@ -53,29 +53,30 @@ export default class PaymentValidation{
             required_error: "Jumlah bayar harus diisi",
             invalid_type_error: "Jumlah bayar harus berupa angka",
         }).min(1, { message: "Jumlah bayar minimal 1" }),
-        payment_method: z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT'], {
-            errorMap: () => ({ message: "Metode pembayaran harus dipilih" })
-        }),
+        payment_method: z.preprocess(
+            (val) => (val === "" ? null : val),
+            z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT']).nullable()
+        ),  
         payment_type: z.enum(['CASH', 'INSURANCE'], {
             errorMap: () => ({ message: "Cara bayar harus dipilih" })
         }),
         note: z.string().optional().nullable(),
-        information: z.string().optional().nullable().superRefine((data, ctx) => {
-            if (data.payment_type === 'CASH' && !data.payment_method) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "Metode pembayaran harus dipilih",
-                    path: ['payment_method']
-                });
-            }
-            if (data.payment_type === 'INSURANCE' && data.payment_method) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "Metode pembayaran harus kosong untuk asuransi",
-                    path: ['payment_method']
-                });
-            }
-        })
+        information: z.string().optional().nullable()
+    }).superRefine((data, ctx) => {
+        if (data.payment_type === 'CASH' && !data.payment_method) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Metode pembayaran harus dipilih",
+                path: ['payment_method']
+            });
+        }
+        if (data.payment_type === 'INSURANCE' && data.payment_method) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Metode pembayaran harus kosong untuk asuransi",
+                path: ['payment_method']
+            });
+        }
     });
 
     static GET_CLOSED_BILLS_FILTER = z.object({
