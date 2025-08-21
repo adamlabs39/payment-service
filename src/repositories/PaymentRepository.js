@@ -155,6 +155,24 @@ export default class PaymentRepository {
                   ELSE 'TUNAI'
               END
             ) as payment_type`),
+            db.raw(`(
+              SELECT 
+                  CONCAT(
+                      TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa), 'HH24:MI'), 
+                      ' - ', 
+                      TO_CHAR(TO_TIMESTAMP(rj.tanggal_periksa) + INTERVAL '15 minute', 'HH24:MI')
+                  )
+              FROM service_bill sb
+              JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+              WHERE sb.bill_uuid = b.uuid LIMIT 1
+            ) as schedule_time`),
+            db.raw(`(
+              CASE
+                  WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = b.uuid AND sb.with_insurance = true)
+                  THEN 'ASURANSI'
+                  ELSE 'TUNAI'
+              END
+            ) as payment_type`),
             db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
             db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
             db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
@@ -242,7 +260,7 @@ export default class PaymentRepository {
     const serviceBill = await db("service_bill as sb")
             .where("sb.uuid", uuid)
             .where("sb.faskes_uuid", faskesUuid)
-            .select('with_insurance')
+            .select('with_insurance', 'type', 'layanan_uuid')
             .first();
     if (!serviceBill) throw new NotfoundException("Service Bill tidak ditemukan");
 
@@ -270,7 +288,22 @@ export default class PaymentRepository {
       }
     });
 
-    return { item: groupedResult, total: totalKeseluruhan, payment_type: paymentType };
+    let schedule_time = null;
+
+    if (serviceBill.type === 'RJ' && serviceBill.layanan_uuid) {
+      const rawatJalan = await db('rawat_jalans')
+          .where('uuid', serviceBill.layanan_uuid)
+          .select('tanggal_periksa')
+          .first();
+      
+      if (rawatJalan && rawatJalan.tanggal_periksa) {
+          const startTime = moment.unix(rawatJalan.tanggal_periksa);
+          const endTime = startTime.clone().add(15, 'minutes');
+          schedule_time = `${startTime.format('HH:mm')} - ${endTime.format('HH:mm')}`;
+      }
+    }
+
+    return { item: groupedResult, total: totalKeseluruhan, payment_type: paymentType, schedule_time };
   }
 
   // Method public untuk mendapatkan detail tagihan pasien
