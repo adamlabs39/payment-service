@@ -137,7 +137,8 @@ export default class CashierRepository {
                 terakhir_login: iat,
                 shift: shiftMap[activeShift.shift_type] || 'N/A',
                 saldo_awal: activeShift.beginning_balance,
-                tanggal_jam_buka: activeShift.shift_time_open
+                tanggal_jam_buka: activeShift.shift_time_open,
+                tanggal_jam_closing: moment().unix()
             };
         } catch (error) {
             throw error;
