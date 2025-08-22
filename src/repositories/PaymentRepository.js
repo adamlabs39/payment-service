@@ -56,20 +56,10 @@ export default class PaymentRepository {
         ) as no_reg`),
         db.raw(`(SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') FROM service_bill sb WHERE sb.bill_uuid = b.uuid) as practitioner_name`),
         db.raw(`(
-          SELECT STRING_AGG(DISTINCT pg.name, ', ')
-          FROM service_bill sb
-          LEFT JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid
-          LEFT JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid
-          LEFT JOIN practitioner pr ON COALESCE(rj.practitioner_uuid, ri.practitioner_uuid) = pr.uuid
-          LEFT JOIN pegawai pg ON pr.pegawai_uuid = pg.uuid
+          SELECT STRING_AGG(DISTINCT sb.practitioner_name, ', ') 
+          FROM service_bill sb 
           WHERE sb.bill_uuid = b.uuid
         ) as practitioner_name`),
-        // db.raw(`(
-        //   SELECT rj.tanggal_periksa
-        //   FROM service_bill sb
-        //   JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
-        //   WHERE sb.bill_uuid = b.uuid LIMIT 1
-        // ) as schedule_date`),
         db.raw(`(
           SELECT CAST(FLOOR(EXTRACT(EPOCH FROM (TO_TIMESTAMP(rj.tanggal_periksa)::date + jd.start_time::time))) AS INTEGER)
           FROM service_bill sb

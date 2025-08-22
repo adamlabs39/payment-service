@@ -105,12 +105,20 @@ const DBSeeder = async () => {
             const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             const todayName = dayMap[moment().day()];
             const [existingSchedule] = await sequelizeInstance.query(
-                `SELECT jd.uuid, jd.practitioner_uuid, jd.day, jd.start_time FROM jadwal_dokter jd JOIN practitioner p ON jd.practitioner_uuid = p.uuid WHERE p.faskes_uuid = :faskesUuid AND jd.status = true AND jd.day = :todayName ORDER BY jd.start_time LIMIT 1`,
+                `SELECT jd.uuid, jd.practitioner_uuid, pg.name as practitioner_name, jd.day, jd.start_time 
+                 FROM jadwal_dokter jd 
+                 JOIN practitioner p ON jd.practitioner_uuid = p.uuid 
+                 JOIN pegawai pg ON p.pegawai_uuid = pg.uuid
+                 WHERE p.faskes_uuid = :faskesUuid AND jd.status = true AND jd.day = :todayName 
+                 ORDER BY jd.start_time LIMIT 1`,
                 { replacements: { faskesUuid: faskes.uuid, todayName: todayName }, type: 'SELECT', transaction }
             );
 
             const [practitionerRI] = await sequelizeInstance.query(
-                `SELECT uuid FROM practitioner WHERE faskes_uuid = :faskesUuid AND is_doctor = true LIMIT 1`,
+                `SELECT p.uuid, pg.name as practitioner_name 
+                 FROM practitioner p
+                 JOIN pegawai pg ON p.pegawai_uuid = pg.uuid
+                 WHERE p.faskes_uuid = :faskesUuid AND p.is_doctor = true LIMIT 1`,
                 { replacements: { faskesUuid: faskes.uuid }, type: 'SELECT', transaction }
             );
 
@@ -205,6 +213,18 @@ const DBSeeder = async () => {
                         created_at: moment().unix(), updated_at: moment().unix(),
                     }], { transaction });
                 }
+
+                let practitionerNameToInsert = 'Petugas Medis'; // Default value
+
+                if (selectedService.type === 'RJ' && existingSchedule) {
+                    practitionerNameToInsert = existingSchedule.practitioner_name;
+                } else if (selectedService.type === 'RI' && practitionerRI) {
+                    practitionerNameToInsert = practitionerRI.practitioner_name;
+                } else if (selectedService.type === 'IGD') {
+                    practitionerNameToInsert = 'Dokter Jaga IGD'; // Contoh untuk IGD
+                } else if (selectedService.type === 'OTC') {
+                    practitionerNameToInsert = 'Petugas Farmasi'; // Contoh untuk OTC
+                }
                 
                 if(admissionUuid || ['IGD', 'OTC'].includes(selectedService.type)) {
                     await queryInterface.bulkInsert('service_bill', [{
@@ -215,7 +235,10 @@ const DBSeeder = async () => {
                         service_name: selectedService.serviceName, 
                         with_insurance: selectedService.with_insurance, 
                         layanan_uuid: admissionUuid,
-                        date: moment().unix(), created_at: moment().unix(), updated_at: moment().unix(),
+                        practitioner_name: practitionerNameToInsert,
+                        date: moment().unix(), 
+                        created_at: moment().unix(), 
+                        updated_at: moment().unix(),
                     }], { transaction });
 
                     const billItems = selectedService.items.map(item => ({
