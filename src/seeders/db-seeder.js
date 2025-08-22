@@ -10,7 +10,7 @@ const DBSeeder = async () => {
     try {
         console.log("Menghapus data seeder lama...");
 
-        // --- BAGIAN PEMBERSIHAN YANG AMAN DAN EFISIEN ---
+        // --- BAGIAN PEMBERSIHAN (AMAN) ---
         const patientsToDelete = await sequelizeInstance.query(
             `SELECT uuid, address_uuid, birth_detail_uuid FROM patients WHERE name LIKE 'Pasien Seed %'`,
             { type: 'SELECT', transaction }
@@ -55,6 +55,7 @@ const DBSeeder = async () => {
         await queryInterface.bulkDelete('lokasi', { name: { [Op.like]: 'SEEDER-%' } }, { transaction });
         await queryInterface.bulkDelete('rawat_jalans', { no_reg: { [Op.like]: 'REG-RJ-%' } }, { transaction });
         await queryInterface.bulkDelete('rawat_inaps', { no_reg: { [Op.like]: 'REG-RI-%' } }, { transaction });
+        // JADWAL DOKTER, PRACTITIONER, PEGAWAI TIDAK DIHAPUS
 
         // --- AKHIR BAGIAN PEMBERSIHAN ---
 
@@ -77,39 +78,46 @@ const DBSeeder = async () => {
         for (const faskes of faskesList) {
             vouchersToSeed.push(
                 { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-OK-${faskes.code}`, name: 'Voucher Diskon 10 Persen', type: 'persentase', value: 10, qty: 100, status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
-                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BESAR-${faskes.code}`, name: 'Voucher Potongan 300rb', type: 'potongan', value: 300000, qty: 5, status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
-                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-LAMA-${faskes.code}`, name: 'Voucher Sudah Lewat', type: 'persentase', value: 20, qty: 100, status: true, start_date: moment().subtract(1, 'month').unix(), end_date: moment().subtract(1, 'day').unix(), created_at: moment().unix(), updated_at: moment().unix() },
-                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BARU-${faskes.code}`, name: 'Voucher Akan Datang', type: 'persentase', value: 15, qty: 100, status: true, start_date: moment().add(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
-                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-NONAKTIF-${faskes.code}`, name: 'Voucher Tidak Aktif', type: 'potongan', value: 25000, qty: 100, status: false, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() },
-                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-HABIS-${faskes.code}`, name: 'Voucher Stok Terbatas', type: 'potongan', value: 10000, qty: 0, status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() }
+                { uuid: uuidv7(), faskes_uuid: faskes.uuid, code: `SEEDER-BESAR-${faskes.code}`, name: 'Voucher Potongan 300rb', type: 'potongan', value: 300000, qty: 5, status: true, start_date: moment().subtract(1, 'day').unix(), end_date: moment().add(1, 'month').unix(), created_at: moment().unix(), updated_at: moment().unix() }
             );
         }
         await queryInterface.bulkInsert('voucher', vouchersToSeed, { transaction });
 
         const serviceTemplates = [
-            { type: 'RJ', practitioner: 'Dr. Budi (Poli Umum)', serviceName: 'Konsultasi Rawat Jalan', with_insurance: false, items: [{ item_name: 'Jasa Konsultasi RJ', price: 150000, category_code: '1' }, { item_name: 'Obat Paracetamol', price: 25000, category_code: '2' }], created_at: moment().unix(), updated_at: moment().unix() },
-            { type: 'RI', practitioner: 'Dr. Siti (Spesialis Anak)', serviceName: 'Perawatan Rawat Inap Anak', with_insurance: true, items: [{ item_name: 'Sewa Kamar Kelas 1 (per hari)', price: 750000, category_code: '4' }, { item_name: 'Infus Set', price: 120000, category_code: '3' }, { item_name: 'Jasa Visite Dokter', price: 250000, category_code: '1' }], created_at: moment().unix(), updated_at: moment().unix() },
-            { type: 'IGD', practitioner: 'Dr. Eka (Dokter Jaga)', serviceName: 'Tindakan Gawat Darurat', with_insurance: false, items: [{ item_name: 'Tindakan Hecting', price: 300000, category_code: '1' }, { item_name: 'Obat Anti-Tetanus', price: 175000, category_code: '2' }], created_at: moment().unix(), updated_at: moment().unix() },
-            { type: 'OTC', practitioner: 'Apoteker Ana', serviceName: 'Pembelian Obat Bebas', with_insurance: true, items: [{ item_name: 'Vitamin C 500mg', price: 55000, category_code: '2' }, { item_name: 'Plester Luka', price: 15000, category_code: '3' }], created_at: moment().unix(), updated_at: moment().unix() },
-            { type: 'LAB', practitioner: 'Analis Lab', serviceName: 'Pemeriksaan Darah Lengkap', with_insurance: false, items: [{ item_name: 'Jasa Ambil Sampel Darah', price: 50000, category_code: '1' }, { item_name: 'Pemeriksaan Hematologi', price: 150000, category_code: '5' }], created_at: moment().unix(), updated_at: moment().unix() },
-            { type: 'FISIO', practitioner: 'Fisioterapis', serviceName: 'Sesi Fisioterapi', with_insurance: true, items: [{ item_name: 'Sesi Terapi Punggung', price: 250000, category_code: '1' }], created_at: moment().unix(), updated_at: moment().unix() }
+            { type: 'RJ', serviceName: 'Konsultasi Rawat Jalan', with_insurance: false, items: [{ item_name: 'Jasa Konsultasi RJ', price: 150000, category_code: '1' }, { item_name: 'Obat Paracetamol', price: 25000, category_code: '2' }] },
+            { type: 'RI', serviceName: 'Perawatan Rawat Inap Anak', with_insurance: true, items: [{ item_name: 'Sewa Kamar Kelas 1 (per hari)', price: 750000, category_code: '4' }, { item_name: 'Infus Set', price: 120000, category_code: '3' }, { item_name: 'Jasa Visite Dokter', price: 250000, category_code: '1' }] },
+            { type: 'IGD', serviceName: 'Tindakan Gawat Darurat', with_insurance: false, items: [{ item_name: 'Tindakan Hecting', price: 300000, category_code: '1' }, { item_name: 'Obat Anti-Tetanus', price: 175000, category_code: '2' }] },
+            { type: 'OTC', serviceName: 'Pembelian Obat Bebas', with_insurance: true, items: [{ item_name: 'Vitamin C 500mg', price: 55000, category_code: '2' }, { item_name: 'Plester Luka', price: 15000, category_code: '3' }] }
         ];
 
         const agamaList = ['Islam', 'Kristen Protestan', 'Kristen Katolik', 'Hindu', 'Buddha', 'Khonghucu'];
         const birthPlaces = ['Jakarta', 'Surabaya', 'Bandung', 'Medan', 'Makassar', 'Semarang'];
-        const complaintList = ['Demam tinggi', 'Batuk pilek', 'Sakit perut', 'Pusing kepala', 'Sesak napas', 'Nyeri sendi'];
-        const educationList = ['SD', 'SMP', 'SMA', 'D3', 'S1', 'S2'];
-        const alasanBatalList = ['Pasien tidak datang', 'Reschedule', 'Emergency lain', 'Kondisi membaik'];
         
         for (const faskes of faskesList) {
             const poliUmumUuid = uuidv7();
             const ruangMawarUuid = uuidv7();
-            const kategoriRuanganDummyUuid = uuidv7();
             
             await queryInterface.bulkInsert('lokasi', [
-                { uuid: poliUmumUuid, faskes_uuid: faskes.uuid, code: 'POLI-UMUM', name: 'SEEDER-Poli Umum', description: 'Poli Umum untuk seeder', phone: '100-001', email: 'poli.umum@seeder.com', url: 'url-poli-umum', location_type: 'UNIT_PELAYANAN', is_poli: true, status: true, pelayanan: 'RJ', no_room: 0, kategori_ruangan_uuid: kategoriRuanganDummyUuid, created_at: moment().unix(), updated_at: moment().unix() },
-                { uuid: ruangMawarUuid, faskes_uuid: faskes.uuid, code: 'R-MAWAR', name: 'SEEDER-Ruang Mawar', no_room: 102, description: 'Ruang Mawar untuk seeder', phone: '100-002', email: 'ruang.mawar@seeder.com', url: 'url-ruang-mawar', location_type: 'RUANG_PERAWATAN', is_poli: false, status: true, pelayanan: 'RI', kategori_ruangan_uuid: kategoriRuanganDummyUuid, created_at: moment().unix(), updated_at: moment().unix() }
+                { uuid: poliUmumUuid, faskes_uuid: faskes.uuid, code: 'POLI-UMUM', name: 'SEEDER-Poli Umum', description: 'Poli Umum untuk seeder', phone: '100-001', email: 'poli.umum@seeder.com', url: 'url-poli-umum', location_type: 'UNIT_PELAYANAN', is_poli: true, status: true, pelayanan: 'RJ', no_room: 0, kategori_ruangan_uuid: uuidv7(), created_at: moment().unix(), updated_at: moment().unix() },
+                { uuid: ruangMawarUuid, faskes_uuid: faskes.uuid, code: 'R-MAWAR', name: 'SEEDER-Ruang Mawar', no_room: 102, description: 'Ruang Mawar untuk seeder', phone: '100-002', email: 'ruang.mawar@seeder.com', url: 'url-ruang-mawar', location_type: 'RUANG_PERAWATAN', is_poli: false, status: true, pelayanan: 'RI', kategori_ruangan_uuid: uuidv7(), created_at: moment().unix(), updated_at: moment().unix() }
             ], { transaction });
+
+            const dayMap = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const todayName = dayMap[moment().day()];
+            const [existingSchedule] = await sequelizeInstance.query(
+                `SELECT jd.uuid, jd.practitioner_uuid, jd.day, jd.start_time FROM jadwal_dokter jd JOIN practitioner p ON jd.practitioner_uuid = p.uuid WHERE p.faskes_uuid = :faskesUuid AND jd.status = true AND jd.day = :todayName ORDER BY jd.start_time LIMIT 1`,
+                { replacements: { faskesUuid: faskes.uuid, todayName: todayName }, type: 'SELECT', transaction }
+            );
+
+            const [practitionerRI] = await sequelizeInstance.query(
+                `SELECT uuid FROM practitioner WHERE faskes_uuid = :faskesUuid AND is_doctor = true LIMIT 1`,
+                { replacements: { faskesUuid: faskes.uuid }, type: 'SELECT', transaction }
+            );
+
+            if (!existingSchedule || !practitionerRI) {
+                console.warn(`Tidak ditemukan jadwal/practitioner untuk faskes ${faskes.code}. Melewatkan pembuatan pasien.`);
+                continue;
+            }
 
             for (let i = 1; i <= 10; i++) {
                 const patientUuid = uuidv7();
@@ -117,7 +125,7 @@ const DBSeeder = async () => {
                 const addressUuid = uuidv7();
                 const birthDetailUuid = uuidv7();
                 const serviceBillUuid = uuidv7();
-                
+
                 const dynamicPhone = `0812${Math.floor(10000000 + Math.random() * 90000000)}`;
                 const randomNumberRm = Math.floor(100000 + Math.random() * 900000);
                 const rmString = randomNumberRm.toString();
@@ -162,14 +170,20 @@ const DBSeeder = async () => {
                 let admissionUuid = null;
                 if (selectedService.type === 'RJ') {
                     admissionUuid = uuidv7();
+                    const scheduleBaseDate = moment().startOf('day');
+                    const [startHour, startMinute] = existingSchedule.start_time.split(':');
+                    const tanggalPeriksa = scheduleBaseDate.hour(startHour).minute(startMinute).add(i * 15, 'minutes').unix();
+
                     await queryInterface.bulkInsert('rawat_jalans', [{
                         uuid: admissionUuid, faskes_uuid: faskes.uuid, payment_method: 1,
                         no_reg: `REG-RJ-${faskes.code}-${i}`, patient_uuid: patientUuid,
                         name: `Pasien Seed ${i} ${faskes.code}`, no_rm: formattedRm,
                         gender: i % 2 === 0 ? 'Perempuan' : 'Laki-laki',
                         tanggal_daftar: moment().unix(),
-                        tanggal_periksa: moment().add(i, 'hours').unix(),
-                        practitioner_uuid: uuidv7(), lokasi_uuid: poliUmumUuid,
+                        tanggal_periksa: tanggalPeriksa,
+                        practitioner_uuid: existingSchedule.practitioner_uuid,
+                        lokasi_uuid: poliUmumUuid,
+                        jadwal_dokter_uuid: existingSchedule.uuid,
                         status_rj: 1, status: true,
                         created_at: moment().unix(), updated_at: moment().unix(),
                     }], { transaction });
@@ -180,7 +194,7 @@ const DBSeeder = async () => {
                         no_reg: `REG-RI-${faskes.code}-${i}`, patient_uuid: patientUuid,
                         name: `Pasien Seed ${i} ${faskes.code}`, no_rm: formattedRm,
                         gender: i % 2 === 0 ? 'Perempuan' : 'Laki-laki',
-                        practitioner_uuid: uuidv7(),
+                        practitioner_uuid: practitionerRI.uuid,
                         tanggal_daftar: moment().unix(),
                         tanggal_dirawat: moment().unix(),
                         maternity: false, multiple_birth: false, entrusted_patient: false,
@@ -192,42 +206,53 @@ const DBSeeder = async () => {
                     }], { transaction });
                 }
                 
-                await queryInterface.bulkInsert('service_bill', [{
-                    uuid: serviceBillUuid, bill_uuid: billUuid, faskes_uuid: faskes.uuid,
-                    type: selectedService.type, 
-                    practitioner_name: selectedService.practitioner, 
-                    service_name: selectedService.serviceName, 
-                    with_insurance: selectedService.with_insurance, 
-                    layanan_uuid: admissionUuid,
-                    date: moment().unix(), created_at: moment().unix(), updated_at: moment().unix(),
-                }], { transaction });
+                if(admissionUuid || ['IGD', 'OTC'].includes(selectedService.type)) {
+                    await queryInterface.bulkInsert('service_bill', [{
+                        uuid: serviceBillUuid, 
+                        bill_uuid: billUuid, 
+                        faskes_uuid: faskes.uuid,
+                        type: selectedService.type, 
+                        service_name: selectedService.serviceName, 
+                        with_insurance: selectedService.with_insurance, 
+                        layanan_uuid: admissionUuid,
+                        date: moment().unix(), created_at: moment().unix(), updated_at: moment().unix(),
+                    }], { transaction });
 
-                const billItems = selectedService.items.map(item => ({
-                    uuid: uuidv7(), service_bill_uuid: serviceBillUuid, faskes_uuid: faskes.uuid,
-                    item_name: item.item_name, qty: 1, price: item.price, price_item: item.price,
-                    category_code: item.category_code, service_fee: item.service_fee || 0,
-                    date_used: moment().unix(), created_at: moment().unix(), updated_at: moment().unix()
-                }));
+                    const billItems = selectedService.items.map(item => ({
+                        uuid: uuidv7(), 
+                        service_bill_uuid: serviceBillUuid, 
+                        faskes_uuid: faskes.uuid,
+                        item_name: item.item_name, 
+                        qty: 1, 
+                        price: item.price, 
+                        price_item: item.price,
+                        category_code: item.category_code, 
+                        service_fee: item.service_fee || 0,
+                        date_used: moment().unix(), 
+                        created_at: moment().unix(), 
+                        updated_at: moment().unix()
+                    }));
 
-                const subTotal = billItems.reduce((acc, item) => acc + item.price, 0);
-                const adminFee = 5000;
-                const ppn = subTotal * 0.11;
-                const grandTotal = subTotal + ppn + adminFee;
+                    const subTotal = billItems.reduce((acc, item) => acc + item.price, 0);
+                    const adminFee = 5000;
+                    const ppn = subTotal * 0.11;
+                    const grandTotal = subTotal + ppn + adminFee;
 
-                await queryInterface.bulkInsert('bills', [{
-                    uuid: billUuid, faskes_uuid: faskes.uuid, patient_uuid: patientUuid, name: `Pasien Seed ${i} ${faskes.code}`,
-                    invoice_code: `INV-${faskes.code}-00${i}`, bill_code: `BILL-${faskes.code}-00${i}`, status: false,
-                    sub_total: subTotal, ppn: ppn, admin_fee: adminFee, grand_total: grandTotal,
-                    close_bill: false, 
-                    created_at: moment().unix(), updated_at: moment().unix(),
-                }], { transaction });
+                    await queryInterface.bulkInsert('bills', [{
+                        uuid: billUuid, faskes_uuid: faskes.uuid, patient_uuid: patientUuid, name: `Pasien Seed ${i} ${faskes.code}`,
+                        invoice_code: `INV-${faskes.code}-00${i}`, bill_code: `BILL-${faskes.code}-00${i}`, status: false,
+                        sub_total: subTotal, ppn: ppn, admin_fee: adminFee, grand_total: grandTotal,
+                        close_bill: false, 
+                        created_at: moment().unix(), updated_at: moment().unix(),
+                    }], { transaction });
 
-                await queryInterface.bulkInsert('bill_item', billItems, { transaction });
+                    await queryInterface.bulkInsert('bill_item', billItems, { transaction });
+                }
             }
         }
 
         await transaction.commit();
-        console.log('Seeding data lengkap untuk rawat inap dan rawat jalan berhasil!');
+        console.log('Seeding data lengkap dengan practitioner berhasil!');
     } catch (error) {
         await transaction.rollback();
         console.error('Terjadi error saat seeding:', error);

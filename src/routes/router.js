@@ -5,7 +5,6 @@ import ReportController from "../controllers/ReportController.js";
 import authorizationSdk from "@adameds/authorization-sdk";
 const r = express.Router();
 
-
 // Payment
 r.get('/closed-bills', authorizationSdk([]), PaymentController.getClosedBillList);
 r.get('/closed-bills/:uuid/history', authorizationSdk([]), PaymentController.getPaymentHistory);
