@@ -2,18 +2,23 @@ import {z} from "zod";
 
 export default class PaymentValidation{
     static APPLY_DISCOUNT = z.object({
-        value: z.preprocess(
-            (val) => {
-                if (typeof val === 'string') {
-                    return parseFloat(val.replace(',', '.'));
-                }
-                return val;
-            },
+        value: z.union([z.string(), z.number()], {
+            required_error: "Nilai diskon harus diisi.",
+            invalid_type_error: "Nilai diskon harus berupa angka atau teks.",
+        })
+        .transform((val) => {
+            const stringVal = String(val);
+            return parseFloat(stringVal.replace(',', '.'));
+        })
+        .pipe(
             z.number({
-                invalid_type_error: "Nilai diskon harus berupa angka",
+                invalid_type_error: "Nilai diskon tidak valid.",
             })
             .min(0.01, { message: "Diskon harus lebih besar dari 0" })
-            .max(100, { message: "Diskon tidak boleh melebihi total pembayaran" })
+            .max(100, { message: "Diskon tidak boleh melebihi 100" })
+            .refine(num => !isNaN(num), {
+                message: "Input tidak dapat diubah menjadi angka yang valid.",
+            })
         ),
     });
 
