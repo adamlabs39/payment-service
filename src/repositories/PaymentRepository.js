@@ -17,20 +17,28 @@ export default class PaymentRepository {
     const subTotal = parseFloat(billData.sub_total) || 0;
     const ppn = parseFloat(billData.ppn) || 0;
     const adminFee = parseFloat(billData.admin_fee) || 0;
-    const discount = parseFloat(billData.discount) || 0;
+    const discountPercent = parseFloat(billData.discount) || 0;
     const { voucher_value, voucher_type } = billData;
     
     let total = subTotal + ppn + adminFee;
-    
+    let voucherDeduction = 0;
+
     if (voucher_type && voucher_value) {
-      total = calculateVoucher({ amount: total, type: voucher_type, value: voucher_value });
+      if (voucher_type === 'persentase') {
+        voucherDeduction = total * (parseFloat(voucher_value) / 100);
+      } else if (voucher_type === 'potongan') {
+        voucherDeduction = parseFloat(voucher_value);
+      }
     }
     
-    if (discount > 0) {
-      total = calculateDiscount({ amount: total, discount: discount });
+    total -= voucherDeduction;
+    
+    if (discountPercent  > 0) {
+      const discountDeduction = total * (discountPercent  / 100);
+      total -= discountDeduction;
     }
 
-    return total;
+    return total < 0 ? 0 : total;
   }
 
   // Helper internal untuk membangun query list tagihan

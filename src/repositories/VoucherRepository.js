@@ -49,7 +49,7 @@ export default class VoucherRepository {
                 throw new BadRequestException("Voucher telah habis digunakan");
             }
 
-            if (voucher.type === 'persentase' || voucher.type === 'potongan' && voucher.value > billTotal) {
+            if (voucher.type === 'potongan' && voucher.value > billTotal) {
                 throw new BadRequestException("Nilai voucher harus kurang dari total tagihan");
             }
             

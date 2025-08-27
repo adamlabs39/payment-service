@@ -26,7 +26,7 @@ export default class PaymentValidation{
         amount: z.number({
             required_error: "Jumlah bayar harus diisi",
             invalid_type_error: "Jumlah bayar harus diisi",
-        }).min(1, { message: "Jumlah bayar harus lebih dari 0" }),
+        }).min(1, { message: "Jumlah bayar harus lebih dari 0" }).max(99999999999, { message: "Jumlah bayar tidak boleh melebihi 999.999.999.999" }),
         payment_type: z.enum(['CASH', 'INSURANCE'], {
             errorMap: () => ({ message: "Cara bayar harus dipilih" })
         }),
@@ -57,7 +57,7 @@ export default class PaymentValidation{
         amount: z.number({
             required_error: "Jumlah bayar harus diisi",
             invalid_type_error: "Jumlah bayar harus berupa angka",
-        }).min(1, { message: "Jumlah bayar minimal 1" }),
+        }).min(1, { message: "Jumlah bayar minimal 1" }).max(99999999999, { message: "Jumlah bayar tidak boleh melebihi 999.999.999" }),
         payment_method: z.preprocess(
             (val) => (val === "" ? null : val),
             z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT']).nullable()
