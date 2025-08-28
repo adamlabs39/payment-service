@@ -267,15 +267,44 @@ export default class PaymentRepository {
       .whereNull("sb.deleted_at");
 
     delete finalBill._rawBillResult;
-    return { ...finalBill, service_bill };
+
+    const mainService = await db("service_bill as sb")
+      .whereIn("sb.bill_uuid", [finalBill.uuid, ...(finalBill.merge_with ? [finalBill.merge_with] : [])])
+      .select("sb.type", "sb.layanan_uuid")
+      .orderBy("sb.created_at", "asc")
+      .first();
+
+    let visitDate = null;
+    if (mainService) {
+      if (mainService.type === 'RJ') {
+        const serviceData = await db('rawat_jalans').where('uuid', mainService.layanan_uuid).select('tanggal_periksa').first(); //
+        visitDate = serviceData ? serviceData.tanggal_periksa : null;
+      } else if (mainService.type === 'RI') {
+        const serviceData = await db('rawat_inaps').where('uuid', mainService.layanan_uuid).select('tanggal_dirawat').first(); //
+        visitDate = serviceData ? serviceData.tanggal_dirawat : null;
+      } else if (mainService.type === 'IGD') {
+        const serviceData = await db('instalasi_gawat_darurats').where('uuid', mainService.layanan_uuid).select('tanggal_dirawat').first(); //
+        visitDate = serviceData ? serviceData.tanggal_dirawat : null;
+      }
+    }
+
+    const cashiers = await db("payment_history as ph")
+    .leftJoin("cashier_report as cr", "ph.kasir_uuid", "cr.uuid")
+    .where("ph.bill_uuid", uuid)
+    .distinct("cr.nama_kasir")
+    .select("cr.nama_kasir");
+
+    const cashierNames = cashiers.map(c => c.nama_kasir).filter(Boolean);
+
+    return { ...finalBill, visit_date: visitDate, cashier_name: cashierNames, service_bill };
   }
 
   // Method public untuk mendapatkan detail tagihan item
   static async GetDetailBillItem(uuid) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
+    const finalBill = await this._getBillDetails(uuid); 
     const serviceBill = await db("service_bill as sb")
             .where("sb.uuid", uuid)
-            .where("sb.faskes_uuid", faskesUuid)
+            .where("sb.faskes_uuid", finalBill.faskes_uuid)
             .select('with_insurance', 'type', 'layanan_uuid')
             .first();
     if (!serviceBill) throw new NotfoundException("Service Bill tidak ditemukan");
@@ -348,14 +377,43 @@ export default class PaymentRepository {
     }
 
     const billDetail = await this.GetDetailBill(uuid);
-    const serviceBillItems = await Promise.all(
-        billDetail.service_bill.map(sb => this.GetDetailBillItem(sb.uuid))
-    );
-    billDetail.service_bill.forEach((sb, index) => {
-        sb.items = serviceBillItems[index];
-    });
 
-    return { patient, bill: billDetail };
+    const mainService = await db("service_bill as sb")
+    .where("sb.bill_uuid", uuid)
+    .select("sb.type", "sb.layanan_uuid")
+    .orderBy("sb.created_at", "asc")
+    .first();
+
+    let visitDate = null;
+
+    if (mainService) {
+      if (mainService.type === 'RJ') {
+          const serviceData = await db('rawat_jalans').where('uuid', mainService.layanan_uuid).select('tanggal_periksa').first();
+          visitDate = serviceData ? serviceData.tanggal_periksa : null;
+      } else if (mainService.type === 'RI') {
+          const serviceData = await db('rawat_inaps').where('uuid', mainService.layanan_uuid).select('tanggal_dirawat').first();
+          visitDate = serviceData ? serviceData.tanggal_dirawat : null;
+      } else if (mainService.type === 'IGD') {
+          const serviceData = await db('instalasi_gawat_darurats').where('uuid', mainService.layanan_uuid).select('tanggal_dirawat').first();
+          visitDate = serviceData ? serviceData.tanggal_dirawat : null;
+      }
+    }
+
+    const cashiers = await db("payment_history as ph")
+      .leftJoin("cashier_report as cr", "ph.kasir_uuid", "cr.uuid")
+      .where("ph.bill_uuid", uuid)
+      .distinct("cr.nama_kasir")
+      .select("cr.nama_kasir");
+
+    const cashierNames = cashiers.map(c => c.nama_kasir).filter(Boolean); // Filter null/undefined names
+
+    const finalBillDetail = {
+      ...billDetail,
+      visit_date: visitDate,
+      cashier_name: cashierNames,
+    };
+
+    return { patient, bill: finalBillDetail };
   }
 
   // Method public untuk menerapkan voucher
@@ -534,20 +592,25 @@ export default class PaymentRepository {
     if (data.payment_type === 'INSURANCE' && (parseFloat(data.amount) || 0) > remainingDebt) {
       throw new BadRequestException("Pembayaran asuransi tidak boleh melebihi sisa tagihan");
     }
-    let amountToRecord = parseFloat(data.amount) || 0;
+    const amountPaid = parseFloat(data.amount) || 0;
     let changeAmount = 0;
+    let shortageAmount = 0;
     let updatedPaymentStatus = false;
 
-    if (amountToRecord >= remainingDebt) {
+    const amountToRecord = amountPaid;
+
+    if (amountPaid >= remainingDebt) {
       updatedPaymentStatus = true;
-      changeAmount = amountToRecord - remainingDebt;
-      amountToRecord = remainingDebt;
+      changeAmount = amountPaid - remainingDebt;
+    } else {
+      shortageAmount = remainingDebt - amountPaid;
     }
 
     await db.transaction(async (trx) => {
       await trx("payment_history").insert({
         uuid: uuidv7(), faskes_uuid: faskesUuid, bill_uuid: uuid,
-        kasir_uuid: getCashier.uuid, amount: amountToRecord,
+        kasir_uuid: getCashier.uuid, 
+        amount: amountToRecord,
         payment_type: data.payment_type, payment_method: data.payment_method,
         information: data.information, note: data.note,
         created_at: moment().unix(), updated_at: moment().unix(),
@@ -557,7 +620,14 @@ export default class PaymentRepository {
         await trx("bills").where(q => q.where("uuid", uuid).orWhere("merge_with", uuid)).update({ status: true });
       }
     });
-    return { success: true, change: changeAmount > 0 ? changeAmount : 0 };
+
+    return { 
+      success: true, 
+      change: changeAmount > 0 ? changeAmount : 0,
+      shortage: shortageAmount > 0 ? shortageAmount : 0,
+      cashier_name: getCashier.nama_kasir,
+      is_paid_off: updatedPaymentStatus
+    };
   }
 
   static async PayDebt(uuid, data) {
