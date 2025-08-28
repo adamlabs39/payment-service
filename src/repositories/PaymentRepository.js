@@ -354,6 +354,8 @@ export default class PaymentRepository {
   }
 
   // Method public untuk mendapatkan detail tagihan pasien
+  // File: PaymentRepository.js
+
   static async getDetailPasienBill(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const bill = await db("bills as b").where({ "b.uuid": uuid, "b.faskes_uuid": faskesUuid }).select("b.uuid", "b.patient_uuid", "b.name as patient_name").first();
@@ -362,60 +364,33 @@ export default class PaymentRepository {
     let patient = { external: true, patient_name: bill.patient_name };
     if (bill.patient_uuid) {
       const patientData = await db("patients as p")
-        .where("p.uuid", bill.patient_uuid)
-        .leftJoin("birth_details as bd", "p.birth_detail_uuid", "bd.uuid")
-        .leftJoin("addresses as a", "p.address_uuid", "a.uuid")
-        .leftJoin("bills as b", "b.patient_uuid", "p.uuid") 
-        .select(
-          "p.name as patient_name", "p.no_rm", "p.gender", "p.no_identity",
-          "p.identity as identity_type", "p.phone as no_handphone", "p.religion as agama",
-          "bd.birth_date as tgl_lahir", "bd.age_year", "bd.age_month", "bd.age_day",
-          "a.full_address as alamat", "a.village as kelurahan_desa", "a.district as kecamatan",
-          "a.city as kabupaten_kota", "a.prov as provinsi", "a.rt", "a.rw", "a.postal_code as kodepos",
-          db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = ? AND sb.with_insurance = true) THEN 'ASURANSI' ELSE 'TUNAI' END) as payment_type`, [uuid])
-            )
-            .first();
-        if (patientData) patient = { ...patientData, external: false };
+      .where("p.uuid", bill.patient_uuid)
+      .leftJoin("birth_details as bd", "p.birth_detail_uuid", "bd.uuid")
+      .leftJoin("addresses as a", "p.address_uuid", "a.uuid")
+      .leftJoin("bills as b", "b.patient_uuid", "p.uuid") 
+      .select(
+        "p.name as patient_name", "p.no_rm", "p.gender", "p.no_identity",
+        "p.identity as identity_type", "p.phone as no_handphone", "p.religion as agama",
+        "bd.birth_date as tgl_lahir", "bd.age_year", "bd.age_month", "bd.age_day",
+        "a.full_address as alamat", "a.village as kelurahan_desa", "a.district as kecamatan",
+        "a.city as kabupaten_kota", "a.prov as provinsi", "a.rt", "a.rw", "a.postal_code as kodepos",
+        db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = ? AND sb.with_insurance = true) THEN 'ASURANSI' ELSE 'TUNAI' END) as payment_type`, [uuid])
+          )
+          .first();
+      if (patientData) patient = { ...patientData, external: false };
     }
 
     const billDetail = await this.GetDetailBill(uuid);
 
-    const mainService = await db("service_bill as sb")
-    .where("sb.bill_uuid", uuid)
-    .select("sb.type", "sb.layanan_uuid")
-    .orderBy("sb.created_at", "asc")
-    .first();
+    // Bagian ini mengembalikan fungsionalitas untuk mengisi item-item di setiap service_bill
+    const serviceBillItems = await Promise.all(
+      billDetail.service_bill.map(sb => this.GetDetailBillItem(sb.uuid))
+    );
+    billDetail.service_bill.forEach((sb, index) => {
+      sb.items = serviceBillItems[index];
+    });
 
-    let visitDate = null;
-
-    if (mainService) {
-      if (mainService.type === 'RJ') {
-          const serviceData = await db('rawat_jalans').where('uuid', mainService.layanan_uuid).select('tanggal_periksa').first();
-          visitDate = serviceData ? serviceData.tanggal_periksa : null;
-      } else if (mainService.type === 'RI') {
-          const serviceData = await db('rawat_inaps').where('uuid', mainService.layanan_uuid).select('tanggal_dirawat').first();
-          visitDate = serviceData ? serviceData.tanggal_dirawat : null;
-      } else if (mainService.type === 'IGD') {
-          const serviceData = await db('instalasi_gawat_darurats').where('uuid', mainService.layanan_uuid).select('tanggal_dirawat').first();
-          visitDate = serviceData ? serviceData.tanggal_dirawat : null;
-      }
-    }
-
-    const cashiers = await db("payment_history as ph")
-      .leftJoin("cashier_report as cr", "ph.kasir_uuid", "cr.uuid")
-      .where("ph.bill_uuid", uuid)
-      .distinct("cr.nama_kasir")
-      .select("cr.nama_kasir");
-
-    const cashierNames = cashiers.map(c => c.nama_kasir).filter(Boolean); // Filter null/undefined names
-
-    const finalBillDetail = {
-      ...billDetail,
-      visit_date: visitDate,
-      cashier_name: cashierNames,
-    };
-
-    return { patient, bill: finalBillDetail };
+    return { patient, bill: billDetail };
   }
 
   // Method public untuk menerapkan voucher
