@@ -301,12 +301,14 @@ export default class PaymentRepository {
 
   // Method public untuk mendapatkan detail tagihan item
   static async GetDetailBillItem(uuid) {
-    const finalBill = await this._getBillDetails(uuid); 
+    const { faskesUuid } = Context.get(CTX_AUTHOR);
+
     const serviceBill = await db("service_bill as sb")
-            .where("sb.uuid", uuid)
-            .where("sb.faskes_uuid", finalBill.faskes_uuid)
-            .select('with_insurance', 'type', 'layanan_uuid')
-            .first();
+      .where("sb.uuid", uuid)
+      .where("sb.faskes_uuid", faskesUuid)
+      .select('with_insurance', 'type', 'layanan_uuid')
+      .first();
+
     if (!serviceBill) throw new NotfoundException("Service Bill tidak ditemukan");
 
     const items = await db("bill_item as bi")
