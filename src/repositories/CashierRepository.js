@@ -164,7 +164,8 @@ export default class CashierRepository {
     // Method public untuk menutup hari kasir
     static async CloseDayCashier() {
         try {
-            const { faskesUuid } = Ctx.get(CTX_AUTHOR);
+            const { faskesUuid, username } = Ctx.get(CTX_AUTHOR);
+            const cashierName = username || 'Unknown';
 
             const openShift = await this._getActiveShift(faskesUuid);
             if (openShift) {
@@ -185,7 +186,8 @@ export default class CashierRepository {
                         total_ppn: 'ppn',
                         total_cash: 'cash',
                         total_debit: 'debit',
-                        total_insurance: 'insurance'
+                        total_insurance: 'insurance',
+                        total_transaction: 'transaction_total'
                     })
                     .first();
 
@@ -193,23 +195,33 @@ export default class CashierRepository {
 
                 if (shiftsToUpdate.length === 0) {
                     await trx('cashier_report').insert({
-                        uuid: uuidv7(), faskes_uuid: faskesUuid, type: 'DAYS',
-                        days_time_closed: timeClose, status: true,
-                        created_at: timeClose, updated_at: timeClose,
+                        uuid: uuidv7(), 
+                        faskes_uuid: faskesUuid, 
+                        type: 'DAYS',
+                        days_time_closed: timeClose, 
+                        status: true,
+                        created_at: timeClose, 
+                        updated_at: timeClose,
                     });
                     return { message: "Tidak ada shift untuk ditutup, laporan harian kosong telah dibuat." };
                 }
 
                 const [dayReport] = await trx('cashier_report')
                     .insert({
-                        uuid: uuidv7(), faskes_uuid: faskesUuid, type: 'DAYS',
+                        uuid: uuidv7(), 
+                        faskes_uuid: faskesUuid, 
+                        nama_kasir: cashierName,
+                        type: 'DAYS',
                         days_time_closed: timeClose,
                         ballance: dailyReportData.total_balance || 0,
                         ppn: dailyReportData.total_ppn || 0,
                         cash: dailyReportData.total_cash || 0,
                         debit: dailyReportData.total_debit || 0,
                         insurance: dailyReportData.total_insurance || 0,
-                        status: true, created_at: timeClose, updated_at: timeClose,
+                        transaction_total: dailyReportData.total_transaction || 0,
+                        status: true,
+                        created_at: timeClose, 
+                        updated_at: timeClose,
                     }).returning('uuid');
 
                 const shiftUuidsToUpdate = shiftsToUpdate.map(s => s.uuid);
@@ -220,6 +232,8 @@ export default class CashierRepository {
 
                 return {
                     total: dailyReportData.total_balance || 0,
+                    transaction_total: parseInt(dailyReportData.total_transaction) || 0,
+                    cashier_name: cashierName,
                     ppn: dailyReportData.total_ppn || 0,
                     cash: dailyReportData.total_cash || 0,
                     debit: dailyReportData.total_debit || 0,
