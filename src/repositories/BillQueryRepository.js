@@ -1,18 +1,13 @@
 import db from "../configs/knex-config.js";
 import { Context } from "../middlewares/context.js";
 import { CTX_AUTHOR } from "../constants/context-constant.js";
-import {KnexPagination} from "../helpers/pagination.js";
+import { KnexPagination } from "../helpers/pagination.js";
 import NotfoundException from "../exceptions/notfound-exception.js";
 import CantProcessDataException from "../exceptions/CantProcessDataException.js";
-import VoucherRepository from "./VoucherRepository.js";
-import BadRequestException from "../exceptions/bad-request-exception.js";
-import CashierRepository from "./CashierRepository.js";
-import { uuidv7 } from "uuidv7";
 import moment from "moment";
-import { query } from "express";
 
-export default class PaymentRepository {
-  /**
+export default class BillQueryRepository {
+    /**
   * Menghitung grand total final sebuah tagihan setelah memperhitungkan PPN,
   * biaya admin, voucher, dan diskon.
   * PENTING: Voucher diaplikasikan terlebih dahulu sebelum diskon persentase.
@@ -217,37 +212,43 @@ export default class PaymentRepository {
       .leftJoin("service_bill as sb", "sb.bill_uuid", "b.uuid")
       .leftJoin("bill_item as bi", "bi.service_bill_uuid", "sb.uuid")
       .leftJoin("birth_details as bd", "p.birth_detail_uuid", "bd.uuid")
+      .leftJoin("addresses as a", "p.address_uuid", "a.uuid")
       .select(
         // Kolom-kolom dasar dari tabel bills, patients, dan birth_details
         "b.uuid", "b.name as patient_name", "b.invoice_code", "b.bill_code",
-            "b.patient_uuid", "p.gender", "b.merge_with",
-            "b.grand_total", "b.sub_total", "b.ppn", "b.admin_fee", 
-            "b.voucher_code", "b.voucher_value", "b.voucher_type", 
-            "b.close_bill", "b.discount", "b.status as payment_status", "p.no_rm",
-            "bd.age_year", "bd.age_month", "bd.age_day",
+        "b.patient_uuid", "p.gender", "b.merge_with",
+        "b.grand_total", "b.sub_total", "b.ppn", "b.admin_fee", 
+        "b.voucher_code", "b.voucher_value", "b.voucher_type", 
+        "b.close_bill", "b.discount", "b.status as payment_status", "p.no_rm",
+        // Kolom Pasien Lengkap
+        "p.no_rm", "p.gender", "p.no_identity", "p.identity as identity_type", 
+        "p.phone as no_handphone", "p.religion as agama",
+        "bd.birth_date as tgl_lahir", "bd.age_year", "bd.age_month", "bd.age_day",
+        "a.full_address as alamat", "a.village as kelurahan_desa", "a.district as kecamatan",
+        "a.city as kabupaten_kota", "a.prov as provinsi", "a.rt", "a.rw", "a.postal_code as kodepos",
 
-            // Subquery untuk data turunan
+        // Subquery untuk data turunan
 
-            // Menentukan tipe pembayaran utama (ASURANSI/TUNAI) berdasarkan keberadaan service_bill yang menggunakan asuransi
-            this._getPaymentTypeSubquery(),
+        // Menentukan tipe pembayaran utama (ASURANSI/TUNAI) berdasarkan keberadaan service_bill yang menggunakan asuransi
+        this._getPaymentTypeSubquery(),
 
-            // Mengambil semua nama kasir unik yang terlibat dalam pembayaran tagihan ini
-            this._getCashierNameSubquery(),
+        // Mengambil semua nama kasir unik yang terlibat dalam pembayaran tagihan ini
+        this._getCashierNameSubquery(),
 
-            // Mengambil tanggal kunjungan pertama dari berbagai jenis layanan
-            this._getVisitDateSubquery(),
+        // Mengambil tanggal kunjungan pertama dari berbagai jenis layanan
+        this._getVisitDateSubquery(),
 
-            // Flag boolean untuk mengecek apakah sudah ada riwayat pembayaran
-            db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
+        // Flag boolean untuk mengecek apakah sudah ada riwayat pembayaran
+        db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
 
-            // Menjumlahkan total yang sudah dibayar dari tabel payment_history
-            db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
+        // Menjumlahkan total yang sudah dibayar dari tabel payment_history
+        db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
 
-            // Mengagregasi total biaya berdasarkan kategori item (tindakan, obat/alkes, ruangan, penunjang)
-            db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
-            db.raw(`SUM(CASE WHEN bi.category_code IN ('2', '3') THEN bi.price * bi.qty + COALESCE(bi.service_fee, 0) ELSE 0 END) AS total_obat_alkes`),
-            db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
-            db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`),
+        // Mengagregasi total biaya berdasarkan kategori item (tindakan, obat/alkes, ruangan, penunjang)
+        db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
+        db.raw(`SUM(CASE WHEN bi.category_code IN ('2', '3') THEN bi.price * bi.qty + COALESCE(bi.service_fee, 0) ELSE 0 END) AS total_obat_alkes`),
+        db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
+        db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`),
         )
       // Logika inti untuk menangani merged bill
       .where(q => q.where("b.uuid", uuid).orWhere("b.merge_with", uuid))
@@ -257,8 +258,10 @@ export default class PaymentRepository {
       .groupBy(
         "b.uuid", "p.gender", "b.name", "b.invoice_code", "b.bill_code", "b.patient_uuid",
         "b.grand_total", "b.sub_total", "b.ppn", "b.admin_fee", "b.voucher_code",
-            "b.voucher_value", "b.voucher_type", "b.close_bill", "b.status", "p.no_rm",
-            "bd.age_year", "bd.age_month", "bd.age_day"
+        "b.voucher_value", "b.voucher_type", "b.close_bill", "b.status", 
+        "p.no_rm", "p.gender", "p.identity", "p.no_identity", "p.phone", "p.religion",
+        "bd.birth_date", "bd.age_year", "bd.age_month", "bd.age_day",
+        "a.full_address", "a.village", "a.district", "a.city", "a.prov", "a.rt", "a.rw", "a.postal_code",
         );
     
     const bill = await billQuery;
@@ -384,8 +387,7 @@ export default class PaymentRepository {
       ) as payment_type`);
   }
 
-
-  // Method public untuk mencari tagihan
+    // Method public untuk mencari tagihan
   static async FindBill(search) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const query = db('bills as b')
@@ -482,142 +484,33 @@ export default class PaymentRepository {
 
   // Method public untuk mendapatkan detail tagihan pasien
   static async getDetailPasienBill(uuid) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const bill = await db("bills as b").where({ "b.uuid": uuid, "b.faskes_uuid": faskesUuid }).select("b.uuid", "b.patient_uuid", "b.name as patient_name").first();
-    if (!bill) throw new NotfoundException("Bill tidak ditemukan");
-
-    let patient = { external: true, patient_name: bill.patient_name };
-    if (bill.patient_uuid) {
-      const patientData = await db("patients as p")
-      .where("p.uuid", bill.patient_uuid)
-      .leftJoin("birth_details as bd", "p.birth_detail_uuid", "bd.uuid")
-      .leftJoin("addresses as a", "p.address_uuid", "a.uuid")
-      .leftJoin("bills as b", "b.patient_uuid", "p.uuid") 
-      .select(
-        "p.name as patient_name", "p.no_rm", "p.gender", "p.no_identity",
-        "p.identity as identity_type", "p.phone as no_handphone", "p.religion as agama",
-        "bd.birth_date as tgl_lahir", "bd.age_year", "bd.age_month", "bd.age_day",
-        "a.full_address as alamat", "a.village as kelurahan_desa", "a.district as kecamatan",
-        "a.city as kabupaten_kota", "a.prov as provinsi", "a.rt", "a.rw", "a.postal_code as kodepos",
-        db.raw(`(CASE WHEN EXISTS (SELECT 1 FROM service_bill sb WHERE sb.bill_uuid = ? AND sb.with_insurance = true) THEN 'ASURANSI' ELSE 'TUNAI' END) as payment_type`, [uuid])
-          )
-          .first();
-      if (patientData) patient = { ...patientData, external: false };
+    const billDetail = await this.GetDetailBill(uuid);
+    
+    const patient = {
+      patient_name: billDetail.patient_name,
+      no_rm: billDetail.no_rm,
+      gender: billDetail.gender,
+      no_identity: billDetail.no_identity,
+      identity_type: billDetail.identity_type,
+      no_handphone: billDetail.no_handphone,
+      agama: billDetail.agama,
+      tgl_lahir: billDetail.tgl_lahir,
+      age_year: billDetail.age_year,
+      age_month: billDetail.age_month,
+      age_day: billDetail.age_day,
+      alamat: billDetail.alamat,
+      kelurahan_desa: billDetail.kelurahan_desa,
+      kecamatan: billDetail.kecamatan,
+      kabupaten_kota: billDetail.kabupaten_kota,
+      provinsi: billDetail.provinsi,
+      rt: billDetail.rt,
+      rw: billDetail.rw,
+      kodepos: billDetail.kodepos,
     }
 
-    const billDetail = await this.GetDetailBill(uuid);
+    const bill = billDetail;
 
-    const serviceBillItems = await Promise.all(
-      billDetail.service_bill.map(sb => this.GetDetailBillItem(sb.uuid))
-    );
-    billDetail.service_bill.forEach((sb, index) => {
-      sb.items = serviceBillItems[index];
-    });
-
-    return { patient, bill: billDetail };
-  }
-
-  // Method public untuk menerapkan voucher
-  static async ApplyVoucher(uuid, data) {
-      const { faskesUuid } = Context.get(CTX_AUTHOR);
-      const { code } = data;
-      
-      const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
-      if (!bill) throw new NotfoundException("Bill tidak ditemukan");
-      if (bill.voucher_code) throw new BadRequestException("Tagihan sudah memiliki voucher");
-
-      const currentBillTotal = (bill.sub_total || 0) + (bill.ppn || 0) + (bill.admin_fee || 0);
-      const v = await VoucherRepository.validateAndGetVoucher(code, currentBillTotal);
-      
-      const tempBillData = { ...bill, voucher_code: v.code, voucher_value: v.value, voucher_type: v.type };
-      const newGrandTotal = this._calculateBillTotals(tempBillData);
-
-      await db("bills").where({ uuid, faskes_uuid: faskesUuid }).update({
-        voucher_code: v.code,
-        voucher_value: v.value,
-        voucher_type: v.type,
-        grand_total: newGrandTotal,
-        updated_at: moment().unix()
-      });
-      return true;
-  }
-
-  // Method public untuk menerapkan diskon
-  static async ApplyDiscount(uuid, data) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const { value } = data;
-
-    const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
-    if (!bill) throw new NotfoundException("Bill tidak ditemukan");
-    if (bill.discount) throw new BadRequestException("Tagihan sudah memiliki diskon");
-
-    const tempBillData = { ...bill, discount: value };
-    const newGrandTotal = this._calculateBillTotals(tempBillData);
-
-    await db("bills").where({ uuid, faskes_uuid: faskesUuid }).update({
-      discount: value,
-      grand_total: newGrandTotal,
-      updated_at: moment().unix()
-    });
-    return true;
-  }
-
-  // Method public untuk menghitung tagihan yang menggunakan kode voucher
-  static async CountBillUsedVoucherCode(voucherCode) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const count = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.voucher_code", voucherCode).count("* as total").first();
-    return count.total;
-  }
-
-  // Method public untuk menutup tagihan
-  static async CloseBill(uuid) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const bill = await db("bills as b").where("b.faskes_uuid", faskesUuid).where("b.uuid", uuid).first();
-    if (!bill) throw new NotfoundException("Bill tidak ditemukan");
-    if (bill.close_bill) throw new BadRequestException("Tagihan sudah ditutup");
-
-    await db("bills").where({ uuid, faskes_uuid: faskesUuid }).update({
-      close_bill: true,
-      updated_at: moment().unix()
-    });
-    return true;
-  }
-
-  // Method public untuk mendapatkan riwayat pembayaran
-  static async GetPaymentHistory(bill_uuid) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-        
-    const billDetails = await this.GetTotalBill(bill_uuid);
-    if (!billDetails) throw new NotfoundException("Tagihan tidak ditemukan");
-    const totalBill = parseFloat(billDetails.grand_total) || 0;
-
-    const history = await db("payment_history as ph")
-      .leftJoin("cashier_report as cr", "ph.kasir_uuid", "cr.uuid")
-      .select("ph.payment_type", "ph.payment_method", "ph.information", "ph.note", "ph.amount", "ph.created_at", "cr.nama_kasir", "cr.shift_type")
-      .where("ph.bill_uuid", bill_uuid)
-      .where("ph.faskes_uuid", faskesUuid)
-      .orderBy('ph.created_at', 'asc'); 
-
-    let cumulativePaid = 0;
-    const enrichedHistory = history.map(payment => {
-      const amountPaid = parseFloat(payment.amount) || 0;
-      const debt_before = totalBill - cumulativePaid;
-      cumulativePaid += amountPaid;
-      const debt_after = totalBill - cumulativePaid;
-      return { ...payment, debt_before, debt_after };
-    });
-
-    const totalPaid = cumulativePaid;
-    const finalDebt = totalBill - totalPaid;
-
-    return {
-      bill_details: billDetails,
-      total_paid: totalPaid,
-      total_bill: totalBill,
-      is_paid: totalPaid >= totalBill,
-      debt: finalDebt > 0 ? finalDebt : 0,
-      payment_history: enrichedHistory, 
-    };
+    return { patient, bill };
   }
 
   // Method public untuk mendapatkan tagihan yang ditutup
@@ -654,115 +547,5 @@ export default class PaymentRepository {
     const finalBill = await this._getBillDetails(uuid);
     delete finalBill._rawBillResult;
     return finalBill;
-  }
-
-  // Method public untuk melakukan pembayaran tagihan
-  static async PaymentBill(uuid, data) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const getCashier = await CashierRepository._getActiveShift(faskesUuid);
-    if (!getCashier) throw new BadRequestException("Shift kasir belum dibuka");
-
-    const bill = await this.GetTotalBill(uuid);
-    if (bill.payment_status) throw new BadRequestException("Tagihan sudah lunas");
-
-    const history = await db("payment_history").where("bill_uuid", uuid);
-    const totalPayment = history.reduce((acc, row) => acc + (parseFloat(row.amount) || 0), 0);
-    
-    const remainingDebt = bill.grand_total - totalPayment;
-
-    if (data.payment_type === 'INSURANCE' && (parseFloat(data.amount) || 0) > remainingDebt) {
-      throw new BadRequestException("Pembayaran asuransi tidak boleh melebihi sisa tagihan");
-    }
-    const amountPaid = parseFloat(data.amount) || 0;
-    let changeAmount = 0;
-    let shortageAmount = 0;
-    let updatedPaymentStatus = false;
-
-    const amountToRecord = amountPaid;
-
-    if (amountPaid >= remainingDebt) {
-      updatedPaymentStatus = true;
-      changeAmount = amountPaid - remainingDebt;
-    } else {
-      shortageAmount = remainingDebt - amountPaid;
-    }
-
-    await db.transaction(async (trx) => {
-      await trx("payment_history").insert({
-        uuid: uuidv7(), faskes_uuid: faskesUuid, bill_uuid: uuid,
-        kasir_uuid: getCashier.uuid, 
-        amount: amountToRecord,
-        payment_type: data.payment_type, payment_method: data.payment_method,
-        information: data.information, note: data.note,
-        created_at: moment().unix(), updated_at: moment().unix(),
-      });
-
-      if (updatedPaymentStatus) {
-        await trx("bills").where(q => q.where("uuid", uuid).orWhere("merge_with", uuid)).update({ status: true });
-      }
-    });
-
-    return { 
-      success: true, 
-      change: changeAmount > 0 ? changeAmount : 0,
-      shortage: shortageAmount > 0 ? shortageAmount : 0,
-      cashier_name: getCashier.nama_kasir,
-      is_paid_off: updatedPaymentStatus
-    };
-  }
-
-  static async PayDebt(uuid, data) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const { amount, payment_type, payment_method, note, information } = data;
-
-    return db.transaction(async (trx) => {
-      const whereClause = { uuid };
-      if (faskesUuid) whereClause.faskes_uuid = faskesUuid;
-        
-      const bill = await trx("bills").where(whereClause).forUpdate().first();
-      if (!bill) throw new NotfoundException("Tagihan tidak ditemukan");
-      if (!bill.close_bill) throw new BadRequestException("Tagihan ini belum ditutup");
-      if (bill.status) throw new BadRequestException("Tagihan ini sudah lunas");
-
-      const getCashier = await CashierRepository._getActiveShift(bill.faskes_uuid, trx);
-
-      if (payment_type === 'CASH' && !getCashier) {
-        throw new BadRequestException("Shift kasir belum dibuka");
-      }
-
-      const paymentSum = await trx("payment_history").where("bill_uuid", uuid).sum('amount as totalPaid').first();
-      const totalPaid = parseFloat(paymentSum.totalPaid) || 0;
-      const remainingDebt = bill.grand_total - totalPaid;
-      if (remainingDebt <= 0) throw new BadRequestException("Tagihan ini sudah tidak memiliki hutang");
-
-      let amountToRecord = parseFloat(amount) || 0;
-      let changeAmount = 0;
-      if (amountToRecord > remainingDebt) {
-        if (payment_type === 'CASH') {
-          changeAmount = amountToRecord - remainingDebt;
-        }
-        amountToRecord = remainingDebt;
-      }
-        
-      await trx("payment_history").insert({
-        uuid: uuidv7(), 
-        faskes_uuid: bill.faskes_uuid, 
-        bill_uuid: uuid,
-        kasir_uuid: getCashier?.uuid,
-        amount: amountToRecord, 
-        payment_type: payment_type, 
-        payment_method: payment_method,
-        information: information, 
-        note: note,
-        created_at: moment().unix(), 
-        updated_at: moment().unix(),
-      });
-        
-      const newTotalPaid = totalPaid + amountToRecord;
-      if (newTotalPaid >= bill.grand_total) {
-        await trx("bills").where({ uuid }).update({ status: true, updated_at: moment().unix() });
-      }
-      return { success: true, change: changeAmount, cashier_name: getCashier?.nama_kasir, message: "Pembayaran hutang berhasil dicatat." };
-    });
   }
 }
