@@ -13,7 +13,7 @@ export default class PaymentTransactionRepository {
   static async GetPaymentHistory(bill_uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
         
-    const billDetails = await BillQueryRepository.GetDetailBill(bill_uuid);
+    const billDetails = await BillQueryRepository.GetTotalBill(bill_uuid);
     if (!billDetails) throw new NotfoundException("Tagihan tidak ditemukan");
     const totalBill = parseFloat(billDetails.grand_total) || 0;
 
@@ -37,7 +37,7 @@ export default class PaymentTransactionRepository {
     const finalDebt = totalBill - totalPaid;
 
     return {
-      bill_details: billDetails,
+      // bill_details: billDetails,
       total_paid: totalPaid,
       total_bill: totalBill,
       is_paid: totalPaid >= totalBill,

@@ -485,7 +485,14 @@ export default class BillQueryRepository {
   // Method public untuk mendapatkan detail tagihan pasien
   static async getDetailPasienBill(uuid) {
     const billDetail = await this.GetDetailBill(uuid);
-    
+    const serviceBillItems = await Promise.all(
+      billDetail.service_bill.map(sb => this.GetDetailBillItem(sb.uuid))
+    );
+
+    billDetail.service_bill.forEach((sb, index) => {
+      sb.items = serviceBillItems[index];
+    });
+
     const patient = {
       patient_name: billDetail.patient_name,
       no_rm: billDetail.no_rm,
@@ -508,9 +515,7 @@ export default class BillQueryRepository {
       kodepos: billDetail.kodepos,
     }
 
-    const bill = billDetail;
-
-    return { patient, bill };
+    return { patient, bill: billDetail };
   }
 
   // Method public untuk mendapatkan tagihan yang ditutup
