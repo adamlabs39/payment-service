@@ -9,11 +9,11 @@ import { uuidv7 } from "uuidv7";
 import moment from "moment";
 
 export default class PaymentTransactionRepository {
-    // Method public untuk mendapatkan riwayat pembayaran
+  // Method public untuk mendapatkan riwayat pembayaran
   static async GetPaymentHistory(bill_uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
         
-    const billDetails = await BillQueryRepository.GetTotalBill(bill_uuid);
+    const billDetails = await BillQueryRepository.GetDetailBill(bill_uuid);
     if (!billDetails) throw new NotfoundException("Tagihan tidak ditemukan");
     const totalBill = parseFloat(billDetails.grand_total) || 0;
 
@@ -52,7 +52,7 @@ export default class PaymentTransactionRepository {
     const getCashier = await CashierRepository._getActiveShift(faskesUuid);
     if (!getCashier) throw new BadRequestException("Shift kasir belum dibuka");
 
-    const bill = await BillQueryRepository.GetTotalBill(uuid);
+    const bill = await BillQueryRepository.GetDetailBill(uuid);
     if (bill.payment_status) throw new BadRequestException("Tagihan sudah lunas");
 
     const history = await db("payment_history").where("bill_uuid", uuid);
