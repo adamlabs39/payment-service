@@ -181,13 +181,30 @@ export default class BillQueryRepository {
     }
 
     // Filter Jenis Pembayaran
-    if (params.payment_type) {
-      const paymentType = params.payment_type.toUpperCase();
-      if (paymentType === 'ASURANSI') {
-        query.whereExists(q => q.select(1).from('service_bill as sb').whereRaw('sb.bill_uuid = b.uuid').where('sb.with_insurance', true))
-          .whereNotExists(q => q.select(1).from('payment_history as ph').whereRaw('ph.bill_uuid = b.uuid').where('ph.payment_type', 'CASH'));
-      } else if (paymentType === 'TUNAI') {
-        query.whereNot(q => q.whereExists(q2 => q2.select(1).from('service_bill as sb').whereRaw('sb.bill_uuid = b.uuid').where('sb.with_insurance', true)).whereNotExists(q2 => q2.select(1).from('payment_history as ph').whereRaw('ph.bill_uuid = b.uuid').where('ph.payment_type', 'CASH')));
+    if (params.payment_type && params.payment_type.length > 0) {
+      const selectedTypes = [].concat(params.payment_type).map(type => type.toUpperCase());
+
+      const asuransiCondition = (q) => {
+        q.whereExists(function() {
+          this.select(1).from('service_bill as sb').whereRaw('sb.bill_uuid = b.uuid').where('sb.with_insurance', true);
+        }).whereNotExists(function() {
+          this.select(1).from('payment_history as ph').whereRaw('ph.bill_uuid = b.uuid').where('ph.payment_type', 'CASH');
+        });
+      };
+
+      if (selectedTypes.length === 1) {
+        if (selectedTypes[0] === 'ASURANSI') {
+          query.where(asuransiCondition);
+        } else if (selectedTypes[0] === 'TUNAI') {
+            query.where(function() {
+              this.whereNotExists(function() {
+                this.select(1).from('service_bill as sb').whereRaw('sb.bill_uuid = b.uuid').where('sb.with_insurance', true);
+              })
+              .orWhereExists(function() {
+                this.select(1).from('payment_history as ph').whereRaw('ph.bill_uuid = b.uuid').where('ph.payment_type', 'CASH');
+              });
+          });
+        }
       }
     }
   }

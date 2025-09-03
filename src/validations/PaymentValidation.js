@@ -104,8 +104,11 @@ export default class PaymentValidation{
             z.string(),
             z.array(z.string())
         ]).optional(),
-        payment_type: z.enum(['TUNAI', 'ASURANSI'], {
-            errorMap: () => ({ message: "Cara bayar harus dipilih" })
+        payment_type: z.union([
+            z.enum(['TUNAI', 'ASURANSI']),
+            z.array(z.enum(['TUNAI', 'ASURANSI']))
+        ], {
+            errorMap: () => ({ message: "Nilai cara bayar tidak valid" })
         }).optional(),
     });
 }
