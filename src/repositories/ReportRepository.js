@@ -68,10 +68,12 @@ export default class ReportRepository {
             .leftJoin('bills as b', 'ph.bill_uuid', 'b.uuid')
             .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
             .leftJoin('cashier_report as cr', 'ph.kasir_uuid', 'cr.uuid')
+            .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
             .select(
                 'ph.uuid', 'p.no_rm', 'b.invoice_code', 'b.bill_code', 'p.name as patient_name',
                 'ph.created_at as payment_date', 'ph.payment_type', 'ph.amount',
-                'cr.nama_kasir as cashier_name', 'ph.information', 'ph.note'
+                'cr.nama_kasir as cashier_name', 'ph.information', 'ph.note',
+                'a.full_address as patient_address'
             )
             .where('ph.faskes_uuid', faskesUuid)
 
@@ -102,10 +104,13 @@ export default class ReportRepository {
                         this.where('p.no_rm', 'ilike', likeTerm)
                             .orWhere('b.invoice_code', 'ilike', likeTerm)
                             .orWhere('b.bill_code', 'ilike', likeTerm)
-                            .orWhere('p.name', 'ilike', likeTerm);
+                            .orWhere('p.name', 'ilike', likeTerm)
+                            .orWhere('a.full_address', 'ilike', likeTerm);
                     });
                 }
             }
+            query.orderBy('ph.created_at', 'desc');
+
             return await KnexPagination.init(query, params);
         } catch (error) {
             throw error;
