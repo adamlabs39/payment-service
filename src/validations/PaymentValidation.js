@@ -84,22 +84,33 @@ export default class PaymentValidation{
         }
     });
 
-    static GET_CLOSED_BILLS_FILTER = z.object({
+    static #BASE_LIST_FILTER = z.object({
         search: z.string().optional(),
         status: z.preprocess(
             (val) => { return val === '' ? undefined : (typeof val === 'string' ? val.toUpperCase() : val); },
             z.enum(['LUNAS', 'PIUTANG', 'SEMUA'], {
-                errorMap: () => ({ message: "Nilai status tidak valid. Harap pilih LUNAS, PIUTANG, atau SEMUA." })
+                errorMap: () => ({ message: "Nilai status tidak valid" })
             })
-        ).optional(),
+            ).optional(),
         start_date: z.string()
-            .regex(/^\d+$/, { message: "tanggal awal harus berupa timestamp unix" })
+            .regex(/^\d+$/, { message: "Tanggal awal harus berupa timestamp unix" })
             .transform(Number)
             .optional(),
         end_date: z.string()
-            .regex(/^\d+$/, { message: "tanggal akhir harus berupa timestamp unix" })
+            .regex(/^\d+$/, { message: "Tanggal akhir harus berupa timestamp unix" })
             .transform(Number)
             .optional(),
+        page: z.string()
+            .regex(/^\d+$/, { message: "Page harus berupa angka" })
+            .transform(Number)
+            .optional(),
+        limit: z.string()
+            .regex(/^\d+$/, { message: "Limit harus berupa angka" })
+            .transform(Number)
+            .optional(),
+    })
+
+    static GET_CLOSED_BILLS_FILTER = this.#BASE_LIST_FILTER.extend({
         service_type: z.union([
             z.string(),
             z.array(z.string())
@@ -108,7 +119,8 @@ export default class PaymentValidation{
             z.enum(['TUNAI', 'ASURANSI']),
             z.array(z.enum(['TUNAI', 'ASURANSI']))
         ], {
-            errorMap: () => ({ message: "Nilai cara bayar tidak valid" })
+            errorMap: () => ({ message: "Nilai Cara Bayar tidak valid." })
         }).optional(),
     });
+
 }

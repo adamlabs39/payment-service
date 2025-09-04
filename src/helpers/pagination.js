@@ -7,12 +7,19 @@ export class KnexPagination {
         const limit = parseInt(args.limit) || 10;
         const offset = (page - 1) * limit;
 
-        const countResult = await db.count('* as count').from(query.clone().as('subquery')).first();
-        const total = countResult.count;
+        const sqlQuery = query.toSQL();
 
-        const data = await query
-            .limit(limit)
-            .offset(offset);
+        const countQuery = db.raw(
+            `SELECT count(*) as "total" FROM (${sqlQuery.sql}) as count_subquery`, 
+            sqlQuery.bindings
+        ).then(result => result.rows[0]);
+
+        const [data, countResult] = await Promise.all([
+            query.limit(limit).offset(offset),
+            countQuery
+        ]);
+
+        const total = parseInt(countResult.total, 10) || 0;
 
         return {
             data,
