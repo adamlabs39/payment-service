@@ -1,8 +1,8 @@
-import { DataTypes, Model } from "sequelize";
-import sequelizeInstance from "../configs/sequelize-instance.js";
-import fieldTime from "./common/fieldTime-model.js";
-import { hookModel } from "./common/hook-model.js";
-import tableIdentifier from "./common/identifier-model.js";
+import { DataTypes, Model } from 'sequelize';
+import sequelizeInstance from '../configs/sequelize-instance.js';
+import fieldTime from './common/fieldTime-model.js';
+import { hookModel } from './common/hook-model.js';
+import tableIdentifier from './common/identifier-model.js';
 
 export default class BillModel extends Model {}
 BillModel.init(
@@ -62,7 +62,7 @@ BillModel.init(
     },
     voucherType: {
       type: DataTypes.ENUM,
-      values: ["persentase", "potongan"],
+      values: ['persentase', 'potongan'],
       allowNull: true,
     },
     discount: {
@@ -82,7 +82,7 @@ BillModel.init(
   },
   {
     sequelize: sequelizeInstance,
-    tableName: "bills",
+    tableName: 'bills',
     underscored: true,
     timestamps: false,
     hooks: hookModel,

@@ -9,7 +9,9 @@
     "start": "node ./src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "sync-db": "node ./src/cli.js sync",
-    "seed-db": "node src/seeders/run-seeder.js"
+    "seed-db": "node src/seeders/run-seeder.js",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@adameds/authorization-sdk": "^1.0.5",
@@ -34,6 +36,10 @@
   "author": "hafisrabbani",
   "license": "MIT",
   "devDependencies": {
-    "@faker-js/faker": "^9.7.0"
+    "@faker-js/faker": "^9.7.0",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.6.2"
   }
 }

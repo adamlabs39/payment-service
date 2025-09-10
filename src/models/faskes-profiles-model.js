@@ -1,8 +1,8 @@
-import { DataTypes, Model } from "sequelize";
-import sequelizeInstance from "../configs/sequelize-instance.js";
-import fieldTime from "./common/fieldTime-model.js";
-import { hookModel } from "./common/hook-model.js";
-import tableIdentifier from "./common/identifier-model.js";
+import { DataTypes, Model } from 'sequelize';
+import sequelizeInstance from '../configs/sequelize-instance.js';
+import fieldTime from './common/fieldTime-model.js';
+import { hookModel } from './common/hook-model.js';
+import tableIdentifier from './common/identifier-model.js';
 export default class FaskesProfilesModel extends Model {}
 FaskesProfilesModel.init(
   {
@@ -68,7 +68,7 @@ FaskesProfilesModel.init(
   },
   {
     sequelize: sequelizeInstance,
-    tableName: "faskes_profiles",
+    tableName: 'faskes_profiles',
     underscored: true,
     timestamps: false,
     hooks: hookModel,

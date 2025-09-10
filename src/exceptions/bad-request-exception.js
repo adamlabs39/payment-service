@@ -5,9 +5,9 @@ export default class BadRequestException extends Error {
     this.status = 400;
     this.errors = [
       {
-        type: "Bad Request",
+        type: 'Bad Request',
         message: message,
-      }
+      },
     ];
   }
 }
