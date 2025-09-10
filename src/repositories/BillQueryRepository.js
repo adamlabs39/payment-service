@@ -90,14 +90,7 @@ export default class BillQueryRepository {
         db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
 
         // Mengambil nomor registrasi pertama yang ditemukan
-        db.raw(`(
-          SELECT COALESCE(rj.no_reg, ri.no_reg) 
-          FROM service_bill sb
-          LEFT JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
-          LEFT JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
-          WHERE sb.bill_uuid = b.uuid 
-          LIMIT 1
-        ) as no_reg`),
+        this._getNoRegSubquery(),
 
         // Menggabungkan semua nama praktisi unik yang menangani pasien
         db.raw(`(
@@ -245,14 +238,9 @@ export default class BillQueryRepository {
         "a.city as kabupaten_kota", "a.prov as provinsi", "a.rt", "a.rw", "a.postal_code as kodepos",
 
         // Subquery untuk data turunan
-
-        // Menentukan tipe pembayaran utama (ASURANSI/TUNAI) berdasarkan keberadaan service_bill yang menggunakan asuransi
+        this._getNoRegSubquery(),
         this._getPaymentTypeSubquery(),
-
-        // Mengambil semua nama kasir unik yang terlibat dalam pembayaran tagihan ini
         this._getCashierNameSubquery(),
-
-        // Mengambil tanggal kunjungan pertama dari berbagai jenis layanan
         this._getVisitDateSubquery(),
 
         // Flag boolean untuk mengecek apakah sudah ada riwayat pembayaran
@@ -403,6 +391,25 @@ export default class BillQueryRepository {
       END
       ) as payment_type`);
   }
+
+  /**
+ * @summary Membuat subquery untuk mengambil nomor registrasi pertama (RJ/RI).
+ * @description Menggunakan COALESCE untuk mencari nomor registrasi dari rawat jalan atau rawat inap
+ * dan mengembalikan yang pertama kali ditemukan berdasarkan layanan paling awal.
+ * @returns {object} Objek db.raw Knex untuk digunakan di dalam .select()
+ * @private
+ */
+static _getNoRegSubquery() {
+  return db.raw(`(
+    SELECT COALESCE(rj.no_reg, ri.no_reg)
+    FROM service_bill sb
+    LEFT JOIN rawat_jalans rj ON sb.layanan_uuid = rj.uuid AND sb.type = 'RJ'
+    LEFT JOIN rawat_inaps ri ON sb.layanan_uuid = ri.uuid AND sb.type = 'RI'
+    WHERE sb.bill_uuid = b.uuid
+    ORDER BY sb.created_at ASC
+    LIMIT 1
+  ) as no_reg`);
+}
 
     // Method public untuk mencari tagihan
   static async FindBill(search) {
