@@ -3,6 +3,7 @@ import PaymentController from '../controllers/PaymentController.js';
 import CashierController from '../controllers/CashierController.js';
 import ReportController from '../controllers/ReportController.js';
 import authorizationSdk from '@adameds/authorization-sdk';
+import PatientBillController from '../controllers/PatientBillController.js';
 const r = express.Router();
 
 // Payment
@@ -32,5 +33,8 @@ r.post('/cashier/close/day', authorizationSdk([]), CashierController.CloseDayCas
 r.get('/report/cashier', authorizationSdk([]), ReportController.getReportCashier);
 r.get('/report/payment', authorizationSdk([]), ReportController.getReportPayment);
 r.get('/report/revenue', authorizationSdk([]), ReportController.getReportRevenue);
+
+// Patient
+r.get('/mobile-patient/bills', authorizationSdk([]), PatientBillController.getMyBills);
 
 export default r;

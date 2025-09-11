@@ -132,9 +132,7 @@ export default class PaymentTransactionRepository {
 
       const getCashier = await CashierRepository._getActiveShift(bill.faskes_uuid, trx);
 
-      if (payment_type === 'CASH' && !getCashier) {
-        throw new BadRequestException('Shift kasir belum dibuka');
-      }
+      if (!getCashier) throw new BadRequestException('Shift kasir belum dibuka');
 
       const paymentSum = await trx('payment_history').where('bill_uuid', uuid).sum('amount as totalPaid').first();
       const totalPaid = parseFloat(paymentSum.totalPaid) || 0;

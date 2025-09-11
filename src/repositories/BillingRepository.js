@@ -268,4 +268,18 @@ export default class BillRepository {
     });
     return true;
   }
+
+  static async getBillsForPatient(patientUuid) {
+    const query = db('bills as b')
+      .select(
+        'b.uuid',
+        'b.invoice_code',
+        'b.grand_total',
+        'b.status as payment_status',
+        'b.created_at',
+        db.raw(`(SELECT name FROM faskes_profiles fp WHERE fp.faskes_uuid = b.faskes_uuid) as faskes_name`)
+      )
+      .where('b.patient_uuid', patientUuid);
+    return await query;
+  }
 }

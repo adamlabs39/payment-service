@@ -77,4 +77,11 @@ export default class PaymentService {
     const validData = ZodValidator.validate(PaymentValidation.DEBT_PAYMENT, data);
     return await PaymentRepository.PayDebt(uuid, validData);
   }
+
+  static async getMyBills(patientUuid) {
+    if (!patientUuid) {
+      throw new BadRequestException('Patient tidak ditemukan');
+    }
+    return await BillingRepository.getBillsForPatient(patientUuid);
+  }
 }
