@@ -6,7 +6,6 @@ import moment from 'moment';
 import { uuidv7 } from 'uuidv7';
 
 export default class CashierRepository {
-  // Helper internal untuk mendapatkan shift kasir yang aktif
   static async _getActiveShift(faskesUuid, trx = db) {
     return await trx('cashier_report')
       .where('faskes_uuid', faskesUuid)
@@ -15,6 +14,59 @@ export default class CashierRepository {
       .where('status', true)
       .orderBy('id', 'desc')
       .select('id', 'uuid', 'nama_kasir', 'shift_type', 'beginning_balance', 'shift_time_open')
+      .first();
+  }
+
+  static _calculateShiftTotals(paymentHistory) {
+    return paymentHistory.reduce(
+      (totals, payment) => {
+        const amount = parseFloat(payment.amount) || 0;
+        const method = payment.payment_method;
+        const type = payment.payment_type;
+
+        totals.total += amount;
+
+        if (method === 'CASH' || method === 'TUNAI') {
+          totals.tunai += amount;
+        } else if (method === 'TRANSFER') {
+          totals.transfer += amount;
+        } else if (['DEBIT', 'CREDIT'].includes(method) || type === 'INSURANCE') {
+          totals.debit_kredit += amount;
+        }
+        return totals;
+      },
+      { tunai: 0, transfer: 0, debit_kredit: 0, total: 0 }
+    );
+  }
+
+  static _getShiftName(shiftType) {
+    switch (shiftType) {
+      case '1':
+        return 'Pagi';
+      case '2':
+        return 'Siang';
+      case '3':
+        return 'Malam';
+      default:
+        return 'N/A';
+    }
+  }
+
+  static _getShiftsToCloseQuery(faskesUuid, trx) {
+    return trx('cashier_report').where({ faskesUuid: faskesUuid, type: 'SHIFT' }).whereNull('cashier_report_uuid');
+  }
+
+  static async _aggregateDailyReportData(shiftsQuery) {
+    return shiftsQuery
+      .clone()
+      .sum({
+        total_balance: 'ballance',
+        total_ppn: 'ppn',
+        total_cash: 'cash',
+        total_debit: 'debit',
+        total_insurance: 'insurance',
+        total_transaction: 'transaction_total',
+      })
       .first();
   }
 
@@ -40,7 +92,6 @@ export default class CashierRepository {
     });
   }
 
-  // Method public untuk menutup shift kasir
   static async CloseShiftCashier(data) {
     const { faskesUuid } = Ctx.get(CTX_AUTHOR);
     const activeShift = await this._getActiveShift(faskesUuid);
@@ -49,30 +100,14 @@ export default class CashierRepository {
     }
     const paymentHistory = await db('payment_history').where('kasir_uuid', activeShift.uuid);
 
-    // Menghitung total dan rincian berdasarkan data sistem
-    const systemTotals = paymentHistory.reduce(
-      (totals, payment) => {
-        const amount = parseFloat(payment.amount) || 0;
-        totals.total += amount;
-        const method = payment.payment_method;
-        const type = payment.payment_type;
+    const systemTotals = this._calculateShiftTotals(paymentHistory);
 
-        if (method === 'CASH' || method === 'TUNAI') totals.tunai += amount;
-        else if (method === 'TRANSFER') totals.transfer += amount;
-        else if (['DEBIT', 'CREDIT'].includes(method) || type === 'INSURANCE') totals.debit_kredit += amount;
-        return totals;
-      },
-      { cash: 0, transfer: 0, debit_kredit: 0, total: 0 }
-    );
-
-    // Ambil inputan manual dari kasir
     const actualTotals = {
       cash: parseFloat(data.cash) || 0,
       transfer: parseFloat(data.debit) || 0,
       debit_credit: parseFloat(data.debit_credit) || 0,
     };
 
-    // Validasi rekonsiliasi
     if (systemTotals.tunai !== actualTotals.cash) {
       throw new CantProcessDataException(
         `Total TUNAI tidak cocok. Sistem: ${systemTotals.tunai}, Aktual: ${actualTotals.cash}`
@@ -136,29 +171,13 @@ export default class CashierRepository {
 
     const paymentHistory = await db('payment_history').where('kasir_uuid', activeShift.uuid);
 
-    const systemTotals = paymentHistory.reduce(
-      (totals, payment) => {
-        const amount = parseFloat(payment.amount) || 0;
-        const method = payment.payment_method;
-        const type = payment.payment_type;
-        if (method === 'CASH' || method === 'TUNAI') {
-          totals.tunai += amount;
-        } else if (method === 'TRANSFER') {
-          totals.transfer += amount;
-        } else if (['DEBIT', 'CREDIT'].includes(method) || type === 'INSURANCE') {
-          totals.debit_kredit += amount;
-        }
-        return totals;
-      },
-      { tunai: 0, transfer: 0, debit_kredit: 0 }
-    );
+    const systemTotals = this._calculateShiftTotals(paymentHistory);
 
-    const shiftMap = { 1: 'Pagi', 2: 'Siang', 3: 'Malam' };
     return {
       is_open: true,
       nama_akun: activeShift.nama_kasir,
       terakhir_login: iat,
-      shift: shiftMap[activeShift.shift_type] || 'N/A',
+      shift: this._getShiftName(activeShift.shift_type),
       saldo_awal: activeShift.beginning_balance,
       tanggal_jam_buka: activeShift.shift_time_open,
       tanggal_jam_closing: moment().unix(),
