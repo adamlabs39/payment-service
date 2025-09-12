@@ -48,15 +48,44 @@ export default class CashierRepository {
       throw new CantProcessDataException('Shift kasir belum dibuka');
     }
     const paymentHistory = await db('payment_history').where('kasir_uuid', activeShift.uuid);
-    const totalPayment = paymentHistory.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-    const cash = parseFloat(data.cash) || 0;
-    const debit = parseFloat(data.debit) || 0;
-    const insurance = parseFloat(data.insurance) || 0;
-    const totalActual = cash + debit + insurance;
-    if (totalPayment !== totalActual) {
-      const selisih = totalActual - totalPayment;
+
+    // Menghitung total dan rincian berdasarkan data sistem
+    const systemTotals = paymentHistory.reduce(
+      (totals, payment) => {
+        const amount = parseFloat(payment.amount) || 0;
+        totals.total += amount;
+        const method = payment.payment_method;
+        const type = payment.payment_type;
+
+        if (method === 'CASH' || method === 'TUNAI') totals.tunai += amount;
+        else if (method === 'TRANSFER') totals.transfer += amount;
+        else if (['DEBIT', 'CREDIT'].includes(method) || type === 'INSURANCE') totals.debit_kredit += amount;
+        return totals;
+      },
+      { cash: 0, transfer: 0, debit_kredit: 0, total: 0 }
+    );
+
+    // Ambil inputan manual dari kasir
+    const actualTotals = {
+      cash: parseFloat(data.cash) || 0,
+      transfer: parseFloat(data.debit) || 0,
+      debit_credit: parseFloat(data.debit_credit) || 0,
+    };
+
+    // Validasi rekonsiliasi
+    if (systemTotals.tunai !== actualTotals.cash) {
       throw new CantProcessDataException(
-        `Gagal closing shift, Total pendapatan shift ${totalPayment} selisih: ${Math.abs(selisih)}`
+        `Total TUNAI tidak cocok. Sistem: ${systemTotals.tunai}, Aktual: ${actualTotals.cash}`
+      );
+    }
+    if (systemTotals.transfer !== actualTotals.transfer) {
+      throw new CantProcessDataException(
+        `Total TRANSFER tidak cocok. Sistem: ${systemTotals.transfer}, Aktual: ${actualTotals.transfer}`
+      );
+    }
+    if (systemTotals.debit_kredit !== actualTotals.debit_credit) {
+      throw new CantProcessDataException(
+        `Total DEBIT/KREDIT tidak cocok. Sistem: ${systemTotals.debit_kredit}, Aktual: ${actualTotals.debit_credit}`
       );
     }
 
@@ -67,14 +96,15 @@ export default class CashierRepository {
     if (!faskesProfile) {
       throw new CantProcessDataException(`Faskes profile dengan uuid ${faskesUuid} tidak ditemukan`);
     }
-    const ppnValue = totalPayment * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0);
+    const ppnValue = systemTotals.total * (faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0);
     const timeClose = moment().unix();
+
     await db('cashier_report').where('id', activeShift.id).update({
       shift_time_closed: timeClose,
-      ballance: totalPayment,
-      cash,
-      debit,
-      insurance,
+      ballance: systemTotals.total,
+      cash: systemTotals.cash,
+      debit: systemTotals.debit_kredit,
+      insurance: systemTotals.transfer,
       ppn: ppnValue,
       status: false,
       transaction_total: paymentHistory.length,
@@ -87,17 +117,11 @@ export default class CashierRepository {
       shift_time_open: activeShift.shift_time_open,
       shift_time_closed: timeClose,
       trx_count: paymentHistory.length,
-      system: {
-        total: totalPayment,
-        ppn: faskesProfile.status_ppn ? faskesProfile.value_ppn / 100 : 0,
-        ppn_value: ppnValue,
-        grand_total: totalPayment + ppnValue,
-      },
-      actual: {
-        cash,
-        debit,
-        insurance,
-        total_payment: totalActual,
+      final_report: {
+        cash: systemTotals.cash,
+        transfer: systemTotals.transfer,
+        debit_kredit: systemTotals.debit_kredit,
+        total: systemTotals.total,
       },
     };
   }
@@ -109,6 +133,26 @@ export default class CashierRepository {
     const { faskesUuid, iat } = author;
     const activeShift = await this._getActiveShift(faskesUuid);
     if (!activeShift) return { is_open: false };
+
+    const paymentHistory = await db('payment_history').where('kasir_uuid', activeShift.uuid);
+
+    const systemTotals = paymentHistory.reduce(
+      (totals, payment) => {
+        const amount = parseFloat(payment.amount) || 0;
+        const method = payment.payment_method;
+        const type = payment.payment_type;
+        if (method === 'CASH' || method === 'TUNAI') {
+          totals.tunai += amount;
+        } else if (method === 'TRANSFER') {
+          totals.transfer += amount;
+        } else if (['DEBIT', 'CREDIT'].includes(method) || type === 'INSURANCE') {
+          totals.debit_kredit += amount;
+        }
+        return totals;
+      },
+      { tunai: 0, transfer: 0, debit_kredit: 0 }
+    );
+
     const shiftMap = { 1: 'Pagi', 2: 'Siang', 3: 'Malam' };
     return {
       is_open: true,
@@ -118,6 +162,7 @@ export default class CashierRepository {
       saldo_awal: activeShift.beginning_balance,
       tanggal_jam_buka: activeShift.shift_time_open,
       tanggal_jam_closing: moment().unix(),
+      pendapatan_system: systemTotals,
     };
   }
 
