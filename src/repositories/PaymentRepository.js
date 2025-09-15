@@ -70,12 +70,6 @@ export default class PaymentTransactionRepository {
     if (!bill) throw new NotfoundException('Tagihan tidak ditemukan');
     if (bill.payment_status) throw new BadRequestException('Tagihan sudah lunas');
 
-    const billPaymentType = bill.payment_type === 'ASURANSI' ? 'INSURANCE' : 'CASH';
-    if (billPaymentType !== data.payment_type) {
-      throw new BadRequestException(
-        `Tipe pembayaran tagihan (${bill.payment_type}) tidak sesuai dengan tipe pembayaran yang dikirim (${data.payment_type}).`
-      );
-    }
     const { remainingDebt } = await this._calculateRemainingDebt(uuid, bill.grand_total);
 
     if (data.payment_type === 'INSURANCE' && (parseFloat(data.amount) || 0) > remainingDebt) {
@@ -136,13 +130,6 @@ export default class PaymentTransactionRepository {
       if (!bill) throw new NotfoundException('Tagihan tidak ditemukan');
       if (!bill.close_bill) throw new BadRequestException('Tagihan ini belum ditutup');
       if (bill.status) throw new BadRequestException('Tagihan ini sudah lunas');
-
-      const billPaymentType = bill.payment_type === 'ASURANSI' ? 'INSURANCE' : 'CASH';
-      if (billPaymentType !== data.payment_type) {
-        throw new BadRequestException(
-          `Tipe pembayaran tagihan (${bill.payment_type}) tidak sesuai dengan tipe pembayaran yang dikirim (${data.payment_type}).`
-        );
-      }
 
       const getCashier = await CashierRepository._getActiveShift(bill.faskes_uuid, trx);
       if (!getCashier) throw new BadRequestException('Shift kasir belum dibuka');
