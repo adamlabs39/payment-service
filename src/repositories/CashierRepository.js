@@ -113,16 +113,16 @@ export default class CashierRepository {
         `Total TUNAI tidak cocok. Sistem: ${systemTotals.tunai}, Aktual: ${actualTotals.cash}`
       );
     }
-    if (systemTotals.transfer !== actualTotals.transfer) {
-      throw new CantProcessDataException(
-        `Total TRANSFER tidak cocok. Sistem: ${systemTotals.transfer}, Aktual: ${actualTotals.transfer}`
-      );
-    }
-    if (systemTotals.debit_kredit !== actualTotals.debit_credit) {
-      throw new CantProcessDataException(
-        `Total DEBIT/KREDIT tidak cocok. Sistem: ${systemTotals.debit_kredit}, Aktual: ${actualTotals.debit_credit}`
-      );
-    }
+    // if (systemTotals.transfer !== actualTotals.transfer) {
+    //   throw new CantProcessDataException(
+    //     `Total TRANSFER tidak cocok. Sistem: ${systemTotals.transfer}, Aktual: ${actualTotals.transfer}`
+    //   );
+    // }
+    // if (systemTotals.debit_kredit !== actualTotals.debit_credit) {
+    //   throw new CantProcessDataException(
+    //     `Total DEBIT/KREDIT tidak cocok. Sistem: ${systemTotals.debit_kredit}, Aktual: ${actualTotals.debit_credit}`
+    //   );
+    // }
 
     const faskesProfile = await db('faskes_profiles')
       .where('faskes_uuid', faskesUuid)
