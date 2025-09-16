@@ -208,8 +208,8 @@ export default class CashierRepository {
           total_balance: 'ballance',
           total_ppn: 'ppn',
           total_cash: 'cash',
-          total_debit: 'debit',
-          total_insurance: 'insurance',
+          total_debit_kredit: 'debit_kredit',
+          total_transfer: 'transfer',
           total_transaction: 'transaction_total',
         })
         .first();
@@ -248,7 +248,7 @@ export default class CashierRepository {
       await trx('cashier_report').whereIn('uuid', shiftUuidsToUpdate).update({ cashier_report_uuid: dayReport.uuid });
       const closedShiftsDetails = await trx('cashier_report')
         .whereIn('uuid', shiftUuidsToUpdate)
-        .select('shift_type', 'ballance', 'ppn', 'cash', 'debit', 'insurance', 'transaction_total');
+        .select('shift_type', 'ballance', 'ppn', 'cash', 'debit_kredit', 'transfer', 'transaction_total');
       return {
         total: dailyReportData.total_balance || 0,
         transaction_total: parseInt(dailyReportData.total_transaction) || 0,
