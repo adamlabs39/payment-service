@@ -188,7 +188,6 @@ export default class CashierRepository {
     };
   }
 
-  // Method public untuk menutup hari kasir
   static async CloseDayCashier() {
     const { faskesUuid, username } = Ctx.get(CTX_AUTHOR);
     const cashierName = username || 'Unknown';
@@ -202,19 +201,12 @@ export default class CashierRepository {
         .where('faskes_uuid', faskesUuid)
         .whereNull('cashier_report_uuid')
         .where('type', 'SHIFT');
-      const dailyReportData = await shiftsToCloseQuery
+
+      const closeShiftDetails = await shiftsToCloseQuery
         .clone()
-        .sum({
-          total_balance: 'ballance',
-          total_ppn: 'ppn',
-          total_cash: 'cash',
-          total_debit_kredit: 'debit_kredit',
-          total_transfer: 'transfer',
-          total_transaction: 'transaction_total',
-        })
-        .first();
-      const shiftsToUpdate = await shiftsToCloseQuery.clone().select('uuid');
-      if (shiftsToUpdate.length === 0) {
+        .select('shift_type', 'ballance', 'cash', 'debit_kredit', 'transfer', 'transaction_total');
+
+      if (closeShiftDetails.length === 0) {
         await trx('cashier_report').insert({
           uuid: uuidv7(),
           faskes_uuid: faskesUuid,
@@ -226,6 +218,37 @@ export default class CashierRepository {
         });
         return { message: 'Tidak ada shift untuk ditutup, laporan harian kosong telah dibuat.' };
       }
+
+      const reportDetails = {
+        1: { cash: 0, transfer: 0, debit_kredit: 0, subtotal: 0 },
+        2: { cash: 0, transfer: 0, debit_kredit: 0, subtotal: 0 },
+        3: { cash: 0, transfer: 0, debit_kredit: 0, subtotal: 0 },
+      };
+
+      let totalPatientTransactions = 0;
+      let totalTransactionNominal = 0;
+      let summary = { cash: 0, debit_kredit: 0, transfer: 0 };
+
+      closeShiftDetails.forEach((shift) => {
+        const shiftName = shift.shift_type;
+        if (shiftName) {
+          reportDetails[shiftName] = {
+            cash: shift.cash || 0,
+            transfer: shift.transfer || 0,
+            debit_kredit: shift.debit_kredit || 0,
+            subtotal: shift.ballance || 0,
+          };
+          totalPatientTransactions += parseInt(shift.transaction_total) || 0;
+          totalTransactionNominal += parseFloat(shift.ballance) || 0;
+          summary.cash += parseFloat(shift.cash) || 0;
+          summary.debit_kredit += parseFloat(shift.debit_kredit) || 0;
+          summary.transfer += parseFloat(shift.transfer) || 0;
+        }
+      });
+
+      const shiftToUpdate = await shiftsToCloseQuery.clone().select('uuid');
+      const shiftUuidsToUpdate = shiftToUpdate.map((s) => s.uuid);
+
       const [dayReport] = await trx('cashier_report')
         .insert({
           uuid: uuidv7(),
@@ -233,32 +256,25 @@ export default class CashierRepository {
           nama_kasir: cashierName,
           type: 'DAYS',
           days_time_closed: timeClose,
-          ballance: dailyReportData.total_balance || 0,
-          ppn: dailyReportData.total_ppn || 0,
-          cash: dailyReportData.total_cash || 0,
-          transfer: dailyReportData.total_transfer || 0,
-          debit_kredit: dailyReportData.total_debit_kredit || 0,
-          transaction_total: dailyReportData.total_transaction || 0,
+          ballance: totalTransactionNominal,
+          cash: summary.cash,
+          transfer: summary.insurance,
+          debit_kredit: summary.debit_credit,
+          transaction_total: totalPatientTransactions,
           status: true,
           created_at: timeClose,
           updated_at: timeClose,
         })
         .returning('uuid');
-      const shiftUuidsToUpdate = shiftsToUpdate.map((s) => s.uuid);
+
       await trx('cashier_report').whereIn('uuid', shiftUuidsToUpdate).update({ cashier_report_uuid: dayReport.uuid });
-      const closedShiftsDetails = await trx('cashier_report')
-        .whereIn('uuid', shiftUuidsToUpdate)
-        .select('shift_type', 'ballance', 'ppn', 'cash', 'debit_kredit', 'transfer', 'transaction_total');
+
       return {
-        total: dailyReportData.total_balance || 0,
-        transaction_total: parseInt(dailyReportData.total_transaction) || 0,
-        cashier_name: cashierName,
-        ppn: dailyReportData.total_ppn || 0,
-        cash: dailyReportData.total_cash || 0,
-        debit: dailyReportData.total_debit || 0,
-        insurance: dailyReportData.total_insurance || 0,
-        time_closed: timeClose,
-        shift: closedShiftsDetails,
+        date: timeClose,
+        total_patient_transactions: totalPatientTransactions,
+        total_transaction_nominal: totalTransactionNominal,
+        shift_details: reportDetails,
+        summary: summary,
       };
     });
   }
