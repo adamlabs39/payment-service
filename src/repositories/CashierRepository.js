@@ -255,17 +255,14 @@ export default class CashierRepository {
         .whereIn('uuid', shiftUuidsToUpdate)
         .select('shift_type', 'ballance', 'ppn', 'cash', 'debit_kredit', 'transfer', 'transaction_total');
       return {
-        message: 'Kasir harian berhasil ditutup',
-        payload: {
-          total: parseFloat(dailyReportData.total_balance) || 0,
-          transaction_total: parseInt(dailyReportData.total_transaction) || 0,
-          cashier_name: cashierName,
-          cash: parseFloat(dailyReportData.total_cash) || 0,
-          debit_kredit: parseFloat(dailyReportData.total_debit_kredit) || 0,
-          transfer: parseFloat(dailyReportData.total_transfer) || 0,
-          time_closed: timeClose,
-          shift: closedShiftsDetails,
-        },
+        total: parseFloat(dailyReportData.total_balance) || 0,
+        transaction_total: parseInt(dailyReportData.total_transaction) || 0,
+        cashier_name: cashierName,
+        cash: parseFloat(dailyReportData.total_cash) || 0,
+        debit_kredit: parseFloat(dailyReportData.total_debit_kredit) || 0,
+        transfer: parseFloat(dailyReportData.total_transfer) || 0,
+        time_closed: timeClose,
+        shift: closedShiftsDetails,
       };
     });
   }
