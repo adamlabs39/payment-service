@@ -27,7 +27,7 @@ export default class CashierRepository {
         totals.total += amount;
 
         if (method === 'CASH' || method === 'TUNAI') {
-          totals.tunai += amount;
+          totals.cash += amount;
         } else if (method === 'TRANSFER') {
           totals.transfer += amount;
         } else if (['DEBIT', 'CREDIT'].includes(method) || type === 'INSURANCE') {
@@ -35,7 +35,7 @@ export default class CashierRepository {
         }
         return totals;
       },
-      { tunai: 0, transfer: 0, debit_kredit: 0, total: 0 }
+      { cash: 0, transfer: 0, debit_kredit: 0, total: 0 }
     );
   }
 
@@ -109,9 +109,9 @@ export default class CashierRepository {
       debit_credit: parseFloat(data.debit_credit) || 0,
     };
 
-    if (systemTotals.tunai !== actualTotals.cash) {
+    if (systemTotals.cash !== actualTotals.cash) {
       throw new CantProcessDataException(
-        `Total TUNAI tidak cocok. Sistem: ${systemTotals.tunai}, Aktual: ${actualTotals.cash}`
+        `Total TUNAI tidak cocok. Sistem: ${systemTotals.cash}, Aktual: ${actualTotals.cash}`
       );
     }
 
@@ -145,7 +145,7 @@ export default class CashierRepository {
       trx_count: paymentHistory.length,
       final_report: {
         beginning_balance: activeShift.beginning_balance,
-        cash: systemTotals.tunai,
+        cash: systemTotals.cash,
         transfer: systemTotals.transfer,
         debit_kredit: systemTotals.debit_kredit,
         total: systemTotals.total,
@@ -258,8 +258,8 @@ export default class CashierRepository {
           days_time_closed: timeClose,
           ballance: totalTransactionNominal,
           cash: summary.cash,
-          transfer: summary.insurance,
-          debit_kredit: summary.debit_credit,
+          transfer: summary.transfer,
+          debit_kredit: summary.debit_kredit,
           transaction_total: totalPatientTransactions,
           status: true,
           created_at: timeClose,
