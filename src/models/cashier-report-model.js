@@ -52,11 +52,11 @@ CashierReportModel.init(
       type: DataTypes.FLOAT,
       allowNull: true,
     },
-    debit: {
+    debitKredit: {
       type: DataTypes.FLOAT,
       allowNull: true,
     },
-    insurance: {
+    transfer: {
       type: DataTypes.FLOAT,
       allowNull: true,
     },

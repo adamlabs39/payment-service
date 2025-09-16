@@ -37,7 +37,7 @@ app.use(errorMiddleware);
 if (process.env.SYNC_DB === 'true') {
   try {
     for (const model of MODEL_MERGE) {
-      await model.sync({ alter: false, force: true });
+      await model.sync({ alter: true, force: false });
     }
     // await DBSeeder();
   } catch (error) {

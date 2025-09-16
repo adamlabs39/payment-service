@@ -1,6 +1,7 @@
 import db from '../configs/knex-config.js';
 import { Context } from '../middlewares/context.js';
 import { CTX_AUTHOR } from '../constants/context-constant.js';
+import { generateReceiptNumber } from '../helpers/ReceiptHelper.js';
 import NotfoundException from '../exceptions/notfound-exception.js';
 import BadRequestException from '../exceptions/bad-request-exception.js';
 import CashierRepository from './CashierRepository.js';
@@ -32,6 +33,7 @@ export default class PaymentTransactionRepository {
         'ph.note',
         'ph.amount',
         'ph.created_at',
+        'ph.receipt_number',
         'cr.nama_kasir',
         'cr.shift_type'
       )
@@ -88,12 +90,15 @@ export default class PaymentTransactionRepository {
     }
 
     await db.transaction(async (trx) => {
+      const receiptNumber = await generateReceiptNumber(trx);
+
       await trx('payment_history').insert({
         uuid: uuidv7(),
         faskes_uuid: faskesUuid,
         bill_uuid: uuid,
         kasir_uuid: getCashier.uuid,
         amount: amountPaid,
+        receipt_number: receiptNumber,
         payment_type: data.payment_type,
         payment_method: data.payment_method,
         information: data.information,
@@ -146,12 +151,15 @@ export default class PaymentTransactionRepository {
         amountToRecord = remainingDebt;
       }
 
+      const receiptNumber = await generateReceiptNumber(trx);
+
       await trx('payment_history').insert({
         uuid: uuidv7(),
         faskes_uuid: bill.faskes_uuid,
         bill_uuid: uuid,
         kasir_uuid: getCashier?.uuid,
         amount: amountToRecord,
+        receipt_number: receiptNumber,
         payment_type: payment_type,
         payment_method: payment_method,
         information: information,

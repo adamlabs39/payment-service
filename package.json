@@ -11,11 +11,12 @@
     "sync-db": "node ./src/cli.js sync",
     "seed-db": "node src/seeders/run-seeder.js",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "knex": "dotenv -e .env -- knex --knexfile src/configs/knex-config.js"
   },
   "dependencies": {
     "@adameds/authorization-sdk": "^1.0.5",
-    "@adameds/model-sdk": "^1.0.78",
+    "@adameds/model-sdk": "^1.0.87",
     "commander": "^12.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -37,6 +38,7 @@
   "license": "MIT",
   "devDependencies": {
     "@faker-js/faker": "^9.7.0",
+    "dotenv-cli": "^10.0.0",
     "eslint": "^9.35.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",

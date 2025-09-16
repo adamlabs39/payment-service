@@ -36,6 +36,11 @@ PaymentHistoryModel.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    receiptNumber: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
     ...fieldTime,
   },
   {

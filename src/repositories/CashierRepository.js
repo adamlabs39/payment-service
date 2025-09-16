@@ -56,6 +56,7 @@ export default class CashierRepository {
     return trx('cashier_report').where({ faskesUuid: faskesUuid, type: 'SHIFT' }).whereNull('cashier_report_uuid');
   }
 
+  // Sepertinya tidak digunakan
   static async _aggregateDailyReportData(shiftsQuery) {
     return shiftsQuery
       .clone()
@@ -128,8 +129,8 @@ export default class CashierRepository {
       shift_time_closed: timeClose,
       ballance: systemTotals.total,
       cash: systemTotals.cash,
-      debit: systemTotals.debit_kredit,
-      insurance: systemTotals.transfer,
+      transfer: systemTotals.transfer,
+      debit_kredit: systemTotals.debit_kredit,
       ppn: ppnValue,
       status: false,
       transaction_total: paymentHistory.length,
@@ -235,8 +236,8 @@ export default class CashierRepository {
           ballance: dailyReportData.total_balance || 0,
           ppn: dailyReportData.total_ppn || 0,
           cash: dailyReportData.total_cash || 0,
-          debit: dailyReportData.total_debit || 0,
-          insurance: dailyReportData.total_insurance || 0,
+          transfer: dailyReportData.total_transfer || 0,
+          debit_kredit: dailyReportData.total_debit_kredit || 0,
           transaction_total: dailyReportData.total_transaction || 0,
           status: true,
           created_at: timeClose,
