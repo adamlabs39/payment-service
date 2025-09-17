@@ -20,6 +20,13 @@ export default class PaymentTransactionRepository {
   static async GetPaymentHistory(bill_uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
 
+    const faskesProfile = await db('faskes_profiles')
+      .where('faskes_uuid', faskesUuid)
+      .select('value_ppn', 'status_ppn')
+      .first();
+
+    const ppnPercentage = faskesProfile && faskesProfile.status_ppn ? parseFloat(faskesProfile.value_ppn) : 0;
+
     const billDetails = await BillingRepository.GetTotalBill(bill_uuid);
     if (!billDetails) throw new NotfoundException('Tagihan tidak ditemukan');
     const subTotal = parseFloat(billDetails.sub_total) || 0;
@@ -66,8 +73,15 @@ export default class PaymentTransactionRepository {
       // bill_details: billDetails,
       total_paid: totalPaid,
       sub_total: subTotal,
-      ppn: parseFloat(billDetails.ppn),
-      discont: Math.round(discountAmount),
+      admin_fee: parseFloat(billDetails.admin_fee) || 0,
+      ppn: {
+        percentage: ppnPercentage,
+        amount: parseFloat(billDetails.ppn),
+      },
+      discount: {
+        percentage: discountPercentage,
+        amount: Math.round(discountAmount),
+      },
       grand_total: totalBill,
       is_paid: totalPaid >= totalBill,
       debt: finalDebt > 0 ? finalDebt : 0,
