@@ -22,6 +22,7 @@ export default class PaymentTransactionRepository {
 
     const billDetails = await BillingRepository.GetTotalBill(bill_uuid);
     if (!billDetails) throw new NotfoundException('Tagihan tidak ditemukan');
+    const subTotal = parseFloat(billDetails.sub_total) || 0;
     const totalBill = parseFloat(billDetails.grand_total) || 0;
 
     const history = await db('payment_history as ph')
@@ -56,7 +57,10 @@ export default class PaymentTransactionRepository {
     return {
       // bill_details: billDetails,
       total_paid: totalPaid,
-      total_bill: totalBill,
+      sub_total: subTotal,
+      ppn: parseFloat(billDetails.ppn),
+      discont: parseFloat(billDetails.discont),
+      grand_total: totalBill,
       is_paid: totalPaid >= totalBill,
       debt: finalDebt > 0 ? finalDebt : 0,
       payment_history: enrichedHistory,
