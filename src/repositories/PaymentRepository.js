@@ -24,6 +24,14 @@ export default class PaymentTransactionRepository {
     if (!billDetails) throw new NotfoundException('Tagihan tidak ditemukan');
     const subTotal = parseFloat(billDetails.sub_total) || 0;
     const totalBill = parseFloat(billDetails.grand_total) || 0;
+    const discountPercentage = parseFloat(billDetails.discount) || 0;
+
+    let discountAmount = 0;
+
+    if (discountPercentage > 0 && discountPercentage < 100) {
+      const totalBeforeDiscount = totalBill / (1 - discountPercentage / 100);
+      discountAmount = totalBeforeDiscount * (discountPercentage / 100);
+    }
 
     const history = await db('payment_history as ph')
       .leftJoin('cashier_report as cr', 'ph.kasir_uuid', 'cr.uuid')
@@ -59,7 +67,7 @@ export default class PaymentTransactionRepository {
       total_paid: totalPaid,
       sub_total: subTotal,
       ppn: parseFloat(billDetails.ppn),
-      discont: parseFloat(billDetails.discount),
+      discont: Math.round(discountAmount),
       grand_total: totalBill,
       is_paid: totalPaid >= totalBill,
       debt: finalDebt > 0 ? finalDebt : 0,
