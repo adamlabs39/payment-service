@@ -1,19 +1,10 @@
-import db from '../configs/knex-config.js';
-
-export async function generateReceiptNumber(trx = db) {
-  const lastPayment = await trx('payment_history').max('receipt_number as last_receipt').first();
-
-  let nextNumber = 1;
-
-  if (lastPayment && lastPayment.last_receipt) {
-    const numberPart = lastPayment.last_receipt.split('/')[1];
-    const lastNumber = parseInt(numberPart, 10);
-
-    if (!isNaN(lastNumber)) {
-      nextNumber = lastNumber + 1;
-    }
-  }
-
-  const paddedNumber = String(nextNumber).padStart(4, '0');
-  return `KUI/${paddedNumber}`;
+import { randomBytes } from 'crypto';
+/**
+ * Menghasilkan nomor kuitansi unik secara acak untuk menghindari race condition.
+ * @param { import("knex").Knex.Transaction } trx - Objek transaksi Knex (tidak digunakan di sini, tapi dipertahankan untuk konsistensi API).
+ * @returns {Promise<string>} Nomor kuitansi acak yang diformat. Contoh: 'KUI/A1B2C3D4'
+ */
+export async function generateReceiptNumber() {
+  const randomPart = randomBytes(4).toString('hex').toUpperCase().slice(0, 4);
+  return `KUI/${randomPart}`;
 }
