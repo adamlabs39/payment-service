@@ -11,12 +11,14 @@ import CantProcessDataException from '../exceptions/CantProcessDataException.js'
  * @summary Membuat subquery untuk mengambil daftar nomor kuitansi yang unik.
  * @returns {object} Objek db.raw Knex.
  */
-export function getReceiptNumbersSubquery() {
+export function getReceiptNumberSubquery() {
   return db.raw(`(
-      SELECT STRING_AGG(DISTINCT ph.receipt_number, ', ') 
-      FROM payment_history ph 
+      SELECT ph.receipt_number
+      FROM payment_history ph
       WHERE ph.bill_uuid = b.uuid
-    ) as receipt_numbers`);
+      ORDER BY ph.created_at DESC
+      LIMIT 1
+    ) as receipt_number`);
 }
 
 /**
@@ -386,7 +388,7 @@ export async function getBillDetails(uuid) {
       getPaymentTypeSubquery(),
       getCashierNameSubquery(),
       getVisitDateSubquery(),
-      getReceiptNumbersSubquery(),
+      getReceiptNumberSubquery(),
 
       // Flag boolean untuk mengecek apakah sudah ada riwayat pembayaran
       db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
