@@ -90,8 +90,8 @@ export default class PaymentTransactionRepository {
   }
 
   static async PaymentBill(uuid, data) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const getCashier = await CashierRepository._getActiveShift(faskesUuid);
+    const { faskesUuid, username } = Context.get(CTX_AUTHOR);
+    const getCashier = await CashierRepository._getActiveShift(faskesUuid, username.toString());
     if (!getCashier) throw new BadRequestException('Shift kasir belum dibuka');
 
     const bill = await BillingRepository.GetDetailBill(uuid);
@@ -150,7 +150,7 @@ export default class PaymentTransactionRepository {
   }
 
   static async PayDebt(uuid, data) {
-    const { faskesUuid } = Context.get(CTX_AUTHOR);
+    const { faskesUuid, username } = Context.get(CTX_AUTHOR);
     const { amount, payment_type, payment_method, note, information } = data;
 
     return db.transaction(async (trx) => {
@@ -162,7 +162,7 @@ export default class PaymentTransactionRepository {
       if (!bill.close_bill) throw new BadRequestException('Tagihan ini belum ditutup');
       if (bill.status) throw new BadRequestException('Tagihan ini sudah lunas');
 
-      const getCashier = await CashierRepository._getActiveShift(bill.faskes_uuid, trx);
+      const getCashier = await CashierRepository._getActiveShift(bill.faskes_uuid, username.toString(), trx);
       if (!getCashier) throw new BadRequestException('Shift kasir belum dibuka');
 
       const { totalPaid, remainingDebt } = await this._calculateRemainingDebt(uuid, bill.grand_total, trx);

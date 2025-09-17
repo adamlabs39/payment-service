@@ -6,9 +6,10 @@ import moment from 'moment';
 import { uuidv7 } from 'uuidv7';
 
 export default class CashierRepository {
-  static async _getActiveShift(faskesUuid, trx = db) {
+  static async _getActiveShift(faskesUuid, cashierName, trx = db) {
     return await trx('cashier_report')
       .where('faskes_uuid', faskesUuid)
+      .where('nama_kasir', cashierName)
       .whereNull('shift_time_closed')
       .where('type', 'SHIFT')
       .where('status', true)
@@ -74,7 +75,7 @@ export default class CashierRepository {
   // Method public untuk membuka shift kasir
   static async OpenShiftCashier(data) {
     const { faskesUuid, username } = Ctx.get(CTX_AUTHOR);
-    const activeShift = await this._getActiveShift(faskesUuid);
+    const activeShift = await this._getActiveShift(faskesUuid, username.toString());
     if (activeShift) {
       throw new CantProcessDataException('Shift kasir masih terbuka');
     }
@@ -94,8 +95,8 @@ export default class CashierRepository {
   }
 
   static async CloseShiftCashier(data) {
-    const { faskesUuid } = Ctx.get(CTX_AUTHOR);
-    const activeShift = await this._getActiveShift(faskesUuid);
+    const { faskesUuid, username } = Ctx.get(CTX_AUTHOR);
+    const activeShift = await this._getActiveShift(faskesUuid, username.toString());
     if (!activeShift) {
       throw new CantProcessDataException('Shift kasir belum dibuka');
     }
@@ -157,8 +158,8 @@ export default class CashierRepository {
   static async CheckCashierShift() {
     const author = Ctx.get(CTX_AUTHOR);
     if (!author) return null;
-    const { faskesUuid, iat } = author;
-    const activeShift = await this._getActiveShift(faskesUuid);
+    const { faskesUuid, iat, username } = author;
+    const activeShift = await this._getActiveShift(faskesUuid, username);
     if (!activeShift) return { is_open: false };
 
     const paymentHistory = await db('payment_history').where('kasir_uuid', activeShift.uuid);
