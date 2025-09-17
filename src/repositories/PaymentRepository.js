@@ -59,7 +59,7 @@ export default class PaymentTransactionRepository {
       total_paid: totalPaid,
       sub_total: subTotal,
       ppn: parseFloat(billDetails.ppn),
-      discont: parseFloat(billDetails.discont),
+      discont: parseFloat(billDetails.discount),
       grand_total: totalBill,
       is_paid: totalPaid >= totalBill,
       debt: finalDebt > 0 ? finalDebt : 0,
