@@ -4,15 +4,19 @@ import db from '../configs/knex-config.js';
 import CantProcessDataException from '../exceptions/CantProcessDataException.js';
 import moment from 'moment';
 import { uuidv7 } from 'uuidv7';
+// import { sendSseEvent } from '../helpers/sseService.js';
 
 export default class CashierRepository {
   static async _getActiveShift(faskesUuid, cashierName, trx = db) {
-    return await trx('cashier_report')
+    const query = trx('cashier_report')
       .where('faskes_uuid', faskesUuid)
-      .where('nama_kasir', cashierName)
       .whereNull('shift_time_closed')
       .where('type', 'SHIFT')
-      .where('status', true)
+      .where('status', true);
+    if (cashierName) {
+      query.where('nama_kasir', cashierName);
+    }
+    return await query
       .orderBy('id', 'desc')
       .select('id', 'uuid', 'nama_kasir', 'shift_type', 'beginning_balance', 'shift_time_open')
       .first();
@@ -137,6 +141,12 @@ export default class CashierRepository {
       transaction_total: paymentHistory.length,
       updated_at: timeClose,
     });
+
+    // SSE
+    // sendSseEvent({
+    //   event: 'SHIFT_CLOSED',
+    //   payload: { cashierName: activeShift.nama_kasir },
+    // });
 
     return {
       cashier_name: activeShift.nama_kasir,

@@ -4,6 +4,7 @@ import CashierController from '../controllers/CashierController.js';
 import ReportController from '../controllers/ReportController.js';
 import authorizationSdk from '@adameds/authorization-sdk';
 import PatientBillController from '../controllers/PatientBillController.js';
+// import { sseHandler } from '../helpers/sseService.js';
 const r = express.Router();
 
 // Payment
@@ -36,5 +37,7 @@ r.get('/report/revenue', authorizationSdk([]), ReportController.getReportRevenue
 
 // Patient
 r.get('/mobile-patient/bills', authorizationSdk([]), PatientBillController.getMyBills);
+
+// r.get('/events', authorizationSdk([]), sseHandler);
 
 export default r;
