@@ -98,6 +98,10 @@ export default class PaymentTransactionRepository {
     if (!bill) throw new NotfoundException('Tagihan tidak ditemukan');
     if (bill.payment_status) throw new BadRequestException('Tagihan sudah lunas');
 
+    if (bill.payment_type === 'TUNAI' && data.payment_type === 'INSURANCE') {
+      throw new BadRequestException('Tagihan ini tidak bisa dibayar menggunakan Asuransi.');
+    }
+
     const { remainingDebt } = await this._calculateRemainingDebt(uuid, bill.grand_total);
 
     if (data.payment_type === 'INSURANCE' && (parseFloat(data.amount) || 0) > remainingDebt) {

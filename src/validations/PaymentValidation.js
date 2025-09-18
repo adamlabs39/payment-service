@@ -38,7 +38,7 @@ export default class PaymentValidation {
       }),
       payment_method: z.preprocess(
         (val) => (val === '' ? null : val),
-        z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT']).nullable()
+        z.enum(['CASH', 'DEBIT_KREDIT', 'TRANSFER']).nullable()
       ),
       note: z.string().nullable(),
       information: z.string().nullable(),
@@ -71,7 +71,7 @@ export default class PaymentValidation {
         .max(999999999999999, { message: 'Jumlah bayar tidak boleh melebihi batas' }),
       payment_method: z.preprocess(
         (val) => (val === '' ? null : val),
-        z.enum(['CASH', 'DEBIT', 'TRANSFER', 'CREDIT']).nullable()
+        z.enum(['CASH', 'DEBIT_KREDIT', 'TRANSFER']).nullable()
       ),
       payment_type: z.enum(['CASH', 'INSURANCE'], {
         errorMap: () => ({ message: 'Cara bayar harus dipilih' }),
