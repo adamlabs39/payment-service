@@ -4,7 +4,7 @@ import db from '../configs/knex-config.js';
 import CantProcessDataException from '../exceptions/CantProcessDataException.js';
 import moment from 'moment';
 import { uuidv7 } from 'uuidv7';
-import { sendSseEvent } from '../helpers/sseService.js';
+// import { sendSseEvent } from '../helpers/sseService.js';
 
 export default class CashierRepository {
   static async _getActiveShift(faskesUuid, cashierName, trx = db) {
@@ -84,10 +84,10 @@ export default class CashierRepository {
       throw new CantProcessDataException('Shift kasir masih terbuka');
     }
 
-    sendSseEvent({
-      event: 'SHIFT_OPENED',
-      payload: { cashierName: activeShift.nama_kasir },
-    });
+    // sendSseEvent({
+    //   event: 'SHIFT_OPENED',
+    //   payload: { cashierName: activeShift.nama_kasir },
+    // });
 
     return db('cashier_report').insert({
       uuid: uuidv7(),
@@ -147,10 +147,10 @@ export default class CashierRepository {
       updated_at: timeClose,
     });
 
-    sendSseEvent({
-      event: 'SHIFT_CLOSED',
-      payload: { cashierName: activeShift.nama_kasir },
-    });
+    // sendSseEvent({
+    //   event: 'SHIFT_CLOSED',
+    //   payload: { cashierName: activeShift.nama_kasir },
+    // });
 
     return {
       cashier_name: activeShift.nama_kasir,
