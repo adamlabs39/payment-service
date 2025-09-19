@@ -81,6 +81,16 @@ export function getPaymentTypeSubquery() {
       ) as payment_type`);
 }
 
+export function getPaymentMethodSubquery() {
+  return db.raw(`(
+    SELECT ph.payment_method
+    FROM payment_history ph
+    WHERE ph.bill_uuid = b.uuid
+    ORDER BY ph.created_at DESC
+    LIMIT 1
+    ) as payment_method`);
+}
+
 // --- KUMPULAN HELPER PROSES & LOGIKA ---
 
 /**
@@ -345,6 +355,7 @@ export async function getBillDetails(uuid) {
     .leftJoin('bill_item as bi', 'bi.service_bill_uuid', 'sb.uuid')
     .leftJoin('birth_details as bd', 'p.birth_detail_uuid', 'bd.uuid')
     .leftJoin('addresses as a', 'p.address_uuid', 'a.uuid')
+    .leftJoin('payment_history as ph', 'ph.bill_uuid', 'b.uuid')
     .select(
       'b.uuid',
       'b.name as patient_name',
@@ -386,6 +397,7 @@ export async function getBillDetails(uuid) {
       // Subquery untuk data turunan
       getNoRegSubquery(),
       getPaymentTypeSubquery(),
+      getPaymentMethodSubquery(),
       getCashierNameSubquery(),
       getVisitDateSubquery(),
       getReceiptNumberSubquery(),

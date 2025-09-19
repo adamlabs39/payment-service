@@ -80,6 +80,7 @@ export default class CashierRepository {
   static async OpenShiftCashier(data) {
     const { faskesUuid, username } = Ctx.get(CTX_AUTHOR);
     const activeShift = await this._getActiveShift(faskesUuid, username.toString());
+    console.log(`Mencari shift untuk kasir: ${username}, Hasil:`, activeShift);
     if (activeShift) {
       throw new CantProcessDataException('Shift kasir masih terbuka');
     }
