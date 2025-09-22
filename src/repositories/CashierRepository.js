@@ -36,7 +36,7 @@ export default class CashierRepository {
           totals.cash += amount;
         } else if (method === 'TRANSFER') {
           totals.transfer += amount;
-        } else if (['DEBIT', 'CREDIT'].includes(method) || type === 'INSURANCE') {
+        } else if (['DEBIT_KREDIT'].includes(method) || type === 'INSURANCE') {
           totals.debit_kredit += amount;
         }
         return totals;
