@@ -17,6 +17,7 @@
   "dependencies": {
     "@adameds/authorization-sdk": "^1.0.5",
     "@adameds/model-sdk": "^1.0.91",
+    "axios": "^1.12.2",
     "commander": "^12.1.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",

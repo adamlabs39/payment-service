@@ -104,9 +104,10 @@ export default class PaymentTransactionRepository {
 
     const { remainingDebt } = await this._calculateRemainingDebt(uuid, bill.grand_total);
 
-    if (data.payment_type === 'INSURANCE' && (parseFloat(data.amount) || 0) > remainingDebt) {
-      throw new BadRequestException('Pembayaran asuransi tidak boleh melebihi sisa tagihan');
-    }
+    // if (data.payment_type === 'INSURANCE' && (parseFloat(data.amount) || 0) > remainingDebt) {
+    //   throw new BadRequestException('Pembayaran asuransi tidak boleh melebihi sisa tagihan');
+    // }
+
     const amountPaid = parseFloat(data.amount) || 0;
     let changeAmount = 0;
     let shortageAmount = 0;

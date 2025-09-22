@@ -1,3 +1,6 @@
+// Ingin mencoba mengatasi too many request pada open cashier namun belum berhasil
+// Ini merupakan alternatif lain selain penggunaan web socket
+
 let clients = [];
 
 export function sendSseEvent(data) {
