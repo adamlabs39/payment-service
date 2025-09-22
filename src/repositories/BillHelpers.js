@@ -349,17 +349,17 @@ export async function getBillList(params, specificFilter, options = {}) {
  * @param {string} uuid - UUID dari tagihan utama.
  * @returns {Promise<object>} Objek detail tagihan yang sudah diagregasi.
  */
-export async function getBillDetails(uuid) {
+export async function getBillDetails(uuid, trx = db) {
   const { faskesUuid } = Context.get(CTX_AUTHOR);
 
-  const checkIfFindIsMerge = await db('bills as b')
+  const checkIfFindIsMerge = await trx('bills as b')
     .where({ 'b.uuid': uuid, 'b.faskes_uuid': faskesUuid })
     .select('b.merge_with')
     .first();
   if (!checkIfFindIsMerge) throw new NotfoundException('Bill tidak ditemukan');
   if (checkIfFindIsMerge.merge_with) throw new CantProcessDataException('Bill tidak dapat di proses');
 
-  const billQuery = db('bills as b')
+  const billQuery = trx('bills as b')
     .leftJoin('patients as p', 'b.patient_uuid', 'p.uuid')
     .leftJoin('service_bill as sb', 'sb.bill_uuid', 'b.uuid')
     .leftJoin('bill_item as bi', 'bi.service_bill_uuid', 'sb.uuid')
@@ -413,18 +413,18 @@ export async function getBillDetails(uuid) {
       getReceiptNumberSubquery(),
 
       // Flag boolean untuk mengecek apakah sudah ada riwayat pembayaran
-      db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
+      trx.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),
 
       // Menjumlahkan total yang sudah dibayar dari tabel payment_history
-      db.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
+      trx.raw(`(SELECT SUM(ph.amount) FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as total_paid`),
 
       // Mengagregasi total biaya berdasarkan kategori item (tindakan, obat/alkes, ruangan, penunjang)
-      db.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
-      db.raw(
+      trx.raw(`SUM(CASE WHEN bi.category_code = '1' THEN bi.price * bi.qty ELSE 0 END) AS total_tindakan`),
+      trx.raw(
         `SUM(CASE WHEN bi.category_code IN ('2', '3') THEN bi.price * bi.qty + COALESCE(bi.service_fee, 0) ELSE 0 END) AS total_obat_alkes`
       ),
-      db.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
-      db.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`)
+      trx.raw(`SUM(CASE WHEN bi.category_code = '4' THEN bi.price * bi.qty ELSE 0 END) AS total_ruangan`),
+      trx.raw(`SUM(CASE WHEN bi.category_code = '5' THEN bi.price * bi.qty ELSE 0 END) AS total_penunjang`)
     )
     .where((q) => q.where('b.uuid', uuid).orWhere('b.merge_with', uuid))
     .andWhere('b.faskes_uuid', faskesUuid)

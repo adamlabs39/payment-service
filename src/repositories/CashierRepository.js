@@ -1,5 +1,6 @@
 import { Context as Ctx } from '../middlewares/context.js';
 import { CTX_AUTHOR } from '../constants/context-constant.js';
+import { SHIFT_TYPES } from '../constants/app-constants.js';
 import db from '../configs/knex-config.js';
 import CantProcessDataException from '../exceptions/CantProcessDataException.js';
 import moment from 'moment';
@@ -46,11 +47,11 @@ export default class CashierRepository {
 
   static _getShiftName(shiftType) {
     switch (shiftType) {
-      case '1':
+      case SHIFT_TYPES.PAGI:
         return 'Pagi';
-      case '2':
+      case SHIFT_TYPES.SIANG:
         return 'Siang';
-      case '3':
+      case SHIFT_TYPES.MALAM:
         return 'Malam';
       default:
         return 'N/A';

@@ -2,6 +2,7 @@ import { KnexPagination } from '../helpers/pagination.js';
 import db from '../configs/knex-config.js';
 import { CTX_AUTHOR } from '../constants/context-constant.js';
 import { Context } from '../middlewares/context.js';
+import { SHIFT_TYPES } from '../constants/app-constants.js';
 import BadRequestException from '../exceptions/bad-request-exception.js';
 
 export default class ReportRepository {
@@ -20,9 +21,9 @@ export default class ReportRepository {
         'cr.nama_kasir as cashier_name',
         db.raw(`STRING_AGG(
                       CASE
-                          WHEN cr_child.shift_type = '1' THEN 'Pagi'
-                          WHEN cr_child.shift_type = '2' THEN 'Siang'
-                          WHEN cr_child.shift_type = '3' THEN 'Malam'
+                          WHEN cr_child.shift_type = '${SHIFT_TYPES.PAGI}' THEN 'Pagi'
+                          WHEN cr_child.shift_type = '${SHIFT_TYPES.SIANG}' THEN 'Siang'
+                          WHEN cr_child.shift_type = '${SHIFT_TYPES.MALAM}' THEN 'Malam'
                           ELSE NULL
                       END, ', ' ORDER BY cr_child.shift_type) as shift_list`),
         db.raw(`STRING_AGG(DISTINCT cr_child.nama_kasir, ', ') as petugas_list`)

@@ -1,6 +1,7 @@
 import db from '../configs/knex-config.js';
 import { Context } from '../middlewares/context.js';
 import { CTX_AUTHOR } from '../constants/context-constant.js';
+import { ITEM_CATEGORIES } from '../constants/app-constants.js';
 import NotfoundException from '../exceptions/notfound-exception.js';
 import BadRequestException from '../exceptions/bad-request-exception.js';
 import VoucherRepository from './VoucherRepository.js';
@@ -149,7 +150,13 @@ export default class BillRepository {
       };
       const itemTotal = item.price * item.qty + (item.service_fee || 0);
       totalKeseluruhan += itemTotal;
-      const categoryMap = { 1: 'tindakan', 2: 'obat', 3: 'alkes', 4: 'ruangan', 5: 'penunjang' };
+      const categoryMap = {
+        [ITEM_CATEGORIES.TINDAKAN]: 'tindakan',
+        [ITEM_CATEGORIES.OBAT]: 'obat',
+        [ITEM_CATEGORIES.ALKES]: 'alkes',
+        [ITEM_CATEGORIES.RUANGAN]: 'ruangan',
+        [ITEM_CATEGORIES.PENUNJANG]: 'penunjang',
+      };
       const category = categoryMap[item.category_code];
       if (category) {
         groupedResult[category].list.push(newItem);
@@ -176,13 +183,63 @@ export default class BillRepository {
   }
 
   // Method public untuk mendapatkan detail tagihan pasien
-  // Terdapat potensi N + 1 Query
   static async getDetailPasienBill(uuid) {
     const billDetail = await this.GetDetailBill(uuid);
-    const serviceBillItems = await Promise.all(billDetail.service_bill.map((sb) => this.GetDetailBillItem(sb.uuid)));
 
-    billDetail.service_bill.forEach((sb, index) => {
-      sb.items = serviceBillItems[index];
+    const serviceBillUuids = billDetail.service_bill.map((sb) => sb.uuid);
+
+    const allItems = await db('bill_item as bi')
+      .whereIn('bi.service_bill_uuid', serviceBillUuids)
+      .select(
+        'bi.service_bill_uuid',
+        'bi.uuid',
+        'bi.item_name',
+        'bi.qty',
+        'bi.price',
+        'bi.service_fee',
+        'bi.category_code',
+        'bi.additional_field',
+        'bi.date_used'
+      );
+
+    const itemsByServiceBill = allItems.reduce((acc, item) => {
+      const key = item.service_bill_uuid;
+      if (!acc[key]) {
+        acc[key] = {
+          tindakan: { list: [], total: 0 },
+          penunjang: { list: [], total: 0 },
+          obat: { list: [], total: 0 },
+          alkes: { list: [], total: 0 },
+          ruangan: { list: [], total: 0 },
+          totalKeseluruhan: 0,
+        };
+      }
+
+      const newItem = {
+        uuid: item.uuid,
+        dateUsed: item.date_used,
+        itemName: item.item_name,
+        qty: item.qty,
+        price: item.price,
+        serviceFee: item.service_fee,
+        additionalField: item.additional_field,
+      };
+
+      const itemTotal = item.price * item.qty + (item.service_fee || 0);
+      acc[key].totalKeseluruhan += itemTotal;
+      const categoryMap = { 1: 'tindakan', 2: 'obat', 3: 'alkes', 4: 'ruangan', 5: 'penunjang' };
+      const category = categoryMap[item.category_code];
+
+      if (category) {
+        acc[key][category].list.push(newItem);
+        acc[key][category].total += itemTotal;
+      }
+
+      return acc;
+    }, {});
+
+    billDetail.service_bill.forEach((sb) => {
+      sb.items = itemsByServiceBill[sb.uuid] || { totalKeseluruhan: 0 };
     });
 
     const patient = {
@@ -222,56 +279,64 @@ export default class BillRepository {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const { code } = data;
 
-    const bill = await this.GetTotalBill(uuid);
-    if (!bill) throw new NotfoundException('Bill tidak ditemukan');
-    if (bill.voucher_code) throw new BadRequestException('Tagihan sudah memiliki voucher');
+    return db.transaction(async (trx) => {
+      const bill = await trx('bills').where({ uuid, faskes_uuid: faskesUuid }).forUpdate().first();
+      if (!bill) throw new NotfoundException('Bill tidak ditemukan');
+      if (bill.voucher_code) throw new BadRequestException('Tagihan sudah memiliki voucher');
 
-    const currentBillTotal = bill.sub_total + bill.ppn + bill.admin_fee;
-    const v = await VoucherRepository.validateAndGetVoucher(code, currentBillTotal);
+      const currentBillTotal = bill.sub_total + bill.ppn + bill.admin_fee;
+      const v = await VoucherRepository.validateAndGetVoucher(code, currentBillTotal);
 
-    const tempBillData = { ...bill, voucher_code: v.code, voucher_value: v.value, voucher_type: v.type };
-    const newGrandTotal = BillHelpers.calculateBillTotals(tempBillData);
+      const tempBillData = { ...bill, voucher_code: v.code, voucher_value: v.value, voucher_type: v.type };
+      const newGrandTotal = BillHelpers.calculateBillTotals(tempBillData);
 
-    await db('bills').where({ uuid, faskes_uuid: faskesUuid }).update({
-      voucher_code: v.code,
-      voucher_value: v.value,
-      voucher_type: v.type,
-      grand_total: newGrandTotal,
-      updated_at: moment().unix(),
+      await trx('bills').where({ uuid }).update({
+        voucher_code: v.code,
+        voucher_value: v.value,
+        voucher_type: v.type,
+        grand_total: newGrandTotal,
+        updated_at: moment().unix(),
+      });
+
+      return true;
     });
-
-    return true;
   }
 
   static async ApplyDiscount(uuid, data) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
     const { value } = data;
 
-    const bill = await BillHelpers.GetTotalBill(uuid);
-    if (!bill) throw new NotfoundException('Bill tidak ditemukan');
-    if (bill.discount) throw new BadRequestException('Tagihan sudah memiliki diskon');
+    return db.transaction(async (trx) => {
+      const bill = await trx('bills').where({ uuid, faskes_uuid: faskesUuid }).forUpdate().first();
+      if (!bill) throw new NotfoundException('Bill tidak ditemukan');
+      if (bill.discount) throw new BadRequestException('Tagihan sudah memiliki diskon');
 
-    const tempBillData = { ...bill, discount: value };
-    const newGrandTotal = BillHelpers.calculateBillTotals(tempBillData);
+      const tempBillData = { ...bill, discount: value };
+      const newGrandTotal = BillHelpers.calculateBillTotals(tempBillData);
 
-    await db('bills').where({ uuid, faskes_uuid: faskesUuid }).update({
-      discount: value,
-      grand_total: newGrandTotal,
-      updated_at: moment().unix(),
+      await trx('bills').where({ uuid }).update({
+        discount: value,
+        grand_total: newGrandTotal,
+        updated_at: moment().unix(),
+      });
+
+      return true;
     });
-    return true;
   }
 
   static async CloseBill(uuid) {
     const { faskesUuid } = Context.get(CTX_AUTHOR);
-    const bill = await db('bills as b').where({ 'b.uuid': uuid, 'b.faskes_uuid': faskesUuid }).first();
-    if (!bill) throw new NotfoundException('Bill tidak ditemukan');
-    if (bill.close_bill) throw new BadRequestException('Tagihan sudah ditutup');
-    await db('bills').where({ uuid, faskes_uuid: faskesUuid }).update({
-      close_bill: true,
-      updated_at: moment().unix(),
+
+    return db.transaction(async (trx) => {
+      const bill = await db('bills as b').where({ 'b.uuid': uuid, 'b.faskes_uuid': faskesUuid }).first();
+      if (!bill) throw new NotfoundException('Bill tidak ditemukan');
+      if (bill.close_bill) throw new BadRequestException('Tagihan sudah ditutup');
+      await trx('bills').where({ uuid, faskes_uuid: faskesUuid }).update({
+        close_bill: true,
+        updated_at: moment().unix(),
+      });
+      return true;
     });
-    return true;
   }
 
   static async getBillsForPatient(patientUuid) {
