@@ -166,6 +166,7 @@ export function buildBillListQuery() {
       'b.bill_code',
       'b.grand_total',
       'b.patient_uuid',
+      'b.close_bill',
       'a.full_address',
       'p.phone as no_handphone',
       'p.gender as jenis_kelamin',
@@ -235,8 +236,13 @@ export function applyBillListFilters(query, params) {
 
   // Filter Status (Lunas/Piutang/Semua)
   if (params.status && params.status.toUpperCase() !== 'SEMUA') {
-    const status = params.status.toUpperCase() === 'LUNAS';
-    query.where('b.status', status);
+    const isLunas = params.status.toUpperCase() === 'LUNAS';
+    if (isLunas) {
+      query.where('b.status', true);
+    } else {
+      query.where('b.status', false);
+      query.where('b.close_bill', false);
+    }
   }
 
   // Filter Pencarian
