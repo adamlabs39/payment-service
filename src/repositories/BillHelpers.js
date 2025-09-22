@@ -136,9 +136,12 @@ export function buildBillListQuery() {
   const rjScheduleCTE = db('service_bill as sb')
     .join('rawat_jalans as rj', 'sb.layanan_uuid', 'rj.uuid')
     .join('jadwal_dokter as jd', 'rj.jadwal_dokter_uuid', 'jd.uuid')
+    .join('lokasi as l', 'jd.lokasi_uuid', 'l.uuid')
     .where('sb.type', 'RJ')
+    .andWhere('l.is_poli', true)
     .select(
       'sb.bill_uuid',
+      'l.name as poli_name',
       db.raw(
         `CAST(FLOOR(EXTRACT(EPOCH FROM (TO_TIMESTAMP(rj.tanggal_periksa)::date + jd.start_time::time))) AS INTEGER) as schedule_start_time`
       ),
@@ -181,6 +184,7 @@ export function buildBillListQuery() {
       'rj_schedule.schedule_end_time',
       'ri_location.room_name',
       'ri_location.bed_number',
+      'rj_schedule.poli_name',
 
       // Flag boolean untuk menandakan apakah tagihan sudah pernah dibayar
       db.raw(`EXISTS (SELECT 1 FROM payment_history ph WHERE ph.bill_uuid = b.uuid) as is_paid`),

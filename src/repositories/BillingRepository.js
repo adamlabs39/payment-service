@@ -172,6 +172,7 @@ export default class BillRepository {
   }
 
   // Method public untuk mendapatkan detail tagihan pasien
+  // Terdapat potensi N + 1 Query
   static async getDetailPasienBill(uuid) {
     const billDetail = await this.GetDetailBill(uuid);
     const serviceBillItems = await Promise.all(billDetail.service_bill.map((sb) => this.GetDetailBillItem(sb.uuid)));
