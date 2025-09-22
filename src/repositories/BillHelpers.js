@@ -235,7 +235,7 @@ export function buildBillListQuery() {
  * @param {object} query - Objek query Knex.
  * @param {object} params - Parameter filter dari request.
  */
-export function applyBillListFilters(query, params) {
+export function applyBillListFilters(query, params, options = {}) {
   const serviceTypeMap = { IGD: ['IGD'], RI: ['RI'], RJ: ['RJ'], APS: ['LAB', 'FISIO'], OTC: ['OTC'] };
 
   // Filter Status (Lunas/Piutang/Semua)
@@ -245,7 +245,7 @@ export function applyBillListFilters(query, params) {
       query.where('b.status', true);
     } else {
       query.where('b.status', false);
-      query.where('b.close_bill', false);
+      if (!options.isClosedBillView) query.where('b.close_bill', false);
     }
   }
 
@@ -329,7 +329,7 @@ export function applyBillListFilters(query, params) {
  * @param {Function} [specificFilter] - Callback untuk filter spesifik.
  * @returns {Promise<object>} Hasil paginasi.
  */
-export async function getBillList(params, specificFilter) {
+export async function getBillList(params, specificFilter, options = {}) {
   const { faskesUuid } = Context.get(CTX_AUTHOR);
 
   const query = buildBillListQuery().where({ 'b.faskes_uuid': faskesUuid });
@@ -338,7 +338,7 @@ export async function getBillList(params, specificFilter) {
     specificFilter(query);
   }
 
-  applyBillListFilters(query, params);
+  applyBillListFilters(query, params, options);
 
   query.orderBy('b.created_at', 'desc');
   return await KnexPagination.init(query, params);

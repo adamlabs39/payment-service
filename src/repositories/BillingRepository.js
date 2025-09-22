@@ -10,9 +10,13 @@ import moment from 'moment';
 export default class BillRepository {
   // Method public untuk mendapatkan tagihan yang ditutup
   static async getClosedBill(params) {
-    return BillHelpers.getBillList(params, (query) => {
-      query.where('b.close_bill', true);
-    });
+    return BillHelpers.getBillList(
+      params,
+      (query) => {
+        query.where('b.close_bill', true);
+      },
+      { isClosedBillView: true }
+    );
   }
 
   // Method public untuk mendapatkan tagihan APS/OTC
