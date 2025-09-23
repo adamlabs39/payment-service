@@ -239,7 +239,9 @@ export default class BillRepository {
     }, {});
 
     billDetail.service_bill.forEach((sb) => {
-      sb.items = itemsByServiceBill[sb.uuid] || { totalKeseluruhan: 0 };
+      sb.items = {
+        item: itemsByServiceBill[sb.uuid] || { totalKeseluruhan: 0 },
+      };
     });
 
     const patient = {
