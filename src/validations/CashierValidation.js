@@ -15,18 +15,8 @@ export default class CashierValidation {
   static CLOSE_SHIFT = z.object({
     cash: z
       .number({
-        errorMap: () => ({ message: 'Pendapatan shift kasir (cash) harus diisi' }),
+        errorMap: () => ({ message: 'Pendapatan aktual tunai harus diisi' }),
       })
       .min(0),
-    // debit: z
-    //   .number({
-    //     errorMap: () => ({ message: 'Pendapatan shift kasir (debit) harus diisi' }),
-    //   })
-    //   .min(0),
-    // insurance: z
-    //   .number({
-    //     errorMap: () => ({ message: 'Pendapatan shift kasir (asuransi) harus diisi' }),
-    //   })
-    //   .min(0),
   });
 }
