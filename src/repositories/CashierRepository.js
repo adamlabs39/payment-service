@@ -123,7 +123,7 @@ export default class CashierRepository {
 
     if (systemTotals.cash !== actualTotals.cash) {
       throw new CantProcessDataException(
-        `Total TUNAI tidak cocok. Sistem: ${systemTotals.cash}, Aktual: ${actualTotals.cash}`
+        `Pendapatan Aktual Tunai tidak sesuai. Sistem: ${systemTotals.cash}, Aktual: ${actualTotals.cash}`
       );
     }
 
