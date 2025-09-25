@@ -7,3 +7,5 @@
 *.pem
 **/src/seed
 *.http
+eslint.config.js
+.prettierrc.json

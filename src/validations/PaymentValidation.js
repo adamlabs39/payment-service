@@ -2,26 +2,32 @@ import { z } from 'zod';
 
 export default class PaymentValidation {
   static APPLY_DISCOUNT = z.object({
-    value: z
-      .union([z.string(), z.number()], {
-        required_error: 'Nilai diskon harus diisi.',
-        invalid_type_error: 'Nilai diskon harus berupa angka atau teks.',
-      })
-      .transform((val) => {
-        const stringVal = String(val);
-        return parseFloat(stringVal.replace(',', '.'));
-      })
-      .pipe(
-        z
-          .number({
-            invalid_type_error: 'Nilai diskon tidak valid.',
-          })
-          .min(0.01, { message: 'Diskon harus lebih besar dari 0' })
-          .max(100, { message: 'Diskon tidak boleh melebihi 100' })
-          .refine((num) => !isNaN(num), {
-            message: 'Input tidak dapat diubah menjadi angka yang valid.',
-          })
-      ),
+    value: z.preprocess(
+      (val) => {
+        // Kalau null atau undefined → return NaN biar dianggap tidak valid
+        if (val === null || val === undefined) {
+          return NaN;
+        }
+
+        // Kalau string → ubah ke number (ganti koma jadi titik)
+        if (typeof val === 'string') {
+          return parseFloat(val.replace(',', '.'));
+        }
+
+        // Kalau number → biarkan
+        return val;
+      },
+      z
+        .number({
+          required_error: 'Nilai diskon harus diisi.',
+          invalid_type_error: 'Nilai diskon tidak valid.',
+        })
+        .min(0.01, { message: 'Diskon harus lebih besar dari 0' })
+        .max(100, { message: 'Diskon tidak boleh melebihi 100' })
+        .refine((num) => !isNaN(num), {
+          message: 'Input tidak dapat diubah menjadi angka yang valid.',
+        })
+    ),
   });
 
   static PAYMENT_REQUEST = z
