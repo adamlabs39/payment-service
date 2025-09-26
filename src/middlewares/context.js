@@ -7,7 +7,7 @@ export class Context {
   }
 
   static get(key) {
-    console.log("key => ", key);
+    console.log('key => ', key);
     console.log(this.instance);
     return this.instance ? this.instance[key] : null;
   }

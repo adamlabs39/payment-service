@@ -1,91 +1,87 @@
-import PaymentRepository from "../repositories/PaymentRepository.js";
-import BadRequestException from "../exceptions/bad-request-exception.js";
-import ZodValidator from "../validations/zod-validator.js";
-import VoucherValidation from "../validations/VoucherValidation.js";
-import PaymentValidation from "../validations/PaymentValidation.js";
+import BadRequestException from '../exceptions/bad-request-exception.js';
+import ZodValidator from '../validations/zod-validator.js';
+import VoucherValidation from '../validations/VoucherValidation.js';
+import PaymentValidation from '../validations/PaymentValidation.js';
+import BillingRepository from '../repositories/BillingRepository.js';
+import PaymentRepository from '../repositories/PaymentRepository.js';
 export default class PaymentService {
-    static async findPayment(search){
-        try {
-            // if(!search) throw new BadRequestException('Search is required');
-            return await PaymentRepository.FindBill(search);
-        } catch (error) {
-            throw error;
-        }
-    }
+  static async findPayment(search) {
+    if (!search) throw new BadRequestException('Pencarian tagihan tidak boleh kosong');
+    return await BillingRepository.FindBill(search);
+  }
 
-    static async getDetailBill(uuid) {
-        try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            return await PaymentRepository.GetDetailBill(uuid);
-        }catch (error) {
-            throw error;
-        }
-    }
+  static async getDetailBill(uuid) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    return await BillingRepository.GetDetailBill(uuid);
+  }
 
-    static async getBillItems(uuid) {
-        try {
-            if(!uuid) throw new BadRequestException('uuid is required');
-            return await PaymentRepository.GetDetailBillItem(uuid);
-        } catch (error) {
-            throw error;
-        }
-    }
+  static async getBillItems(uuid) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    return await BillingRepository.GetDetailBillItem(uuid);
+  }
 
-    static async applyVoucher(uuid,data){
-        try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            const validData = ZodValidator.validate(VoucherValidation.VoucherSchema, data);
-            return await PaymentRepository.ApplyVoucher(uuid, validData);
-        }catch (error) {
-            throw error;
-        }
-    }
+  static async getDetailPasienBill(uuid) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    return await BillingRepository.getDetailPasienBill(uuid);
+  }
 
-    static async applyDiscount(uuid,data){
-        try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            const validData = ZodValidator.validate(PaymentValidation.APPLY_DISCOUNT, data);
-            return await PaymentRepository.ApplyDiscount(uuid, validData);
-        }catch (error) {
-            throw error;
-        }
-    }
+  static async getDetailPayment(uuid) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    return await BillingRepository.GetDetailBill(uuid);
+  }
 
-    static async closeBill(uuid){
-        try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            return await PaymentRepository.CloseBill(uuid);
-        }catch (error) {
-            throw error;
-        }
-    }
+  static async getClosedBillList(queryParams) {
+    const validQueryParams = ZodValidator.validate(PaymentValidation.GET_CLOSED_BILLS_FILTER, queryParams);
+    return await BillingRepository.getClosedBill(validQueryParams);
+  }
 
-    static async paymentBill(uuid, data){
-        try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            const validData = ZodValidator.validate(PaymentValidation.PAYMENT_REQUEST, data);
-            return await PaymentRepository.PaymentBill(uuid, validData);
-        }catch (error) {
-            throw error;
-        }
-    }
+  static async getApsOtcList(queryParams) {
+    const validQueryParams = ZodValidator.validate(PaymentValidation.GET_CLOSED_BILLS_FILTER, queryParams);
+    return await BillingRepository.getApsOtc(validQueryParams);
+  }
 
-    static async getPaymentHistory(uuid){
-        try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            return await PaymentRepository.GetPaymentHistory(uuid);
-        }catch (error) {
-            throw error;
-        }
-    }
+  static async getPelayananList(queryParams) {
+    const validQueryParams = ZodValidator.validate(PaymentValidation.GET_CLOSED_BILLS_FILTER, queryParams);
+    return await BillingRepository.getPelayanan(validQueryParams);
+  }
+  static async applyVoucher(uuid, data) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    const validData = ZodValidator.validate(VoucherValidation.VoucherSchema, data);
+    return await BillingRepository.ApplyVoucher(uuid, validData);
+  }
 
+  static async applyDiscount(uuid, data) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    const validData = ZodValidator.validate(PaymentValidation.APPLY_DISCOUNT, data);
+    return await BillingRepository.ApplyDiscount(uuid, validData);
+  }
 
-    static async getDetailPayment(uuid){
-        try{
-            if(!uuid) throw new BadRequestException('uuid is required');
-            return await PaymentRepository.getAllDetailBillItem(uuid);
-        }catch (error) {
-            throw error;
-        }
+  static async closeBill(uuid) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    return await BillingRepository.CloseBill(uuid);
+  }
+
+  static async paymentBill(uuid, data) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    const validData = ZodValidator.validate(PaymentValidation.PAYMENT_REQUEST, data);
+    return await PaymentRepository.PaymentBill(uuid, validData);
+  }
+
+  static async getPaymentHistory(uuid) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    return await PaymentRepository.GetPaymentHistory(uuid);
+  }
+
+  static async payDebtOnClosedBill(uuid, data) {
+    if (!uuid) throw new BadRequestException('UUID tagihan tidak boleh kosong');
+    const validData = ZodValidator.validate(PaymentValidation.DEBT_PAYMENT, data);
+    return await PaymentRepository.PayDebt(uuid, validData);
+  }
+
+  static async getMyBills(patientUuid) {
+    if (!patientUuid) {
+      throw new BadRequestException('Patient tidak ditemukan');
     }
+    return await BillingRepository.getBillsForPatient(patientUuid);
+  }
 }
