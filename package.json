@@ -15,8 +15,8 @@
     "knex": "dotenv -e .env -- knex --knexfile src/configs/knex-config.js"
   },
   "dependencies": {
-    "@adameds/authorization-sdk": "^1.0.5",
-    "@adameds/model-sdk": "^1.0.91",
+    "@adameds/authorization-sdk": "^1.0.0",
+    "@adameds/model-sdk": "^1.0.93",
     "axios": "^1.12.2",
     "commander": "^12.1.0",
     "cors": "^2.8.5",
