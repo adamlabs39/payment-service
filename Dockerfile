@@ -1,4 +1,4 @@
-FROM node:23-alpine3.20
+FROM node:25-alpine3.22
 LABEL API="pembayaran API"
 ENV APP_HOST=0.0.0.0
 ENV APP_PORT=8089
